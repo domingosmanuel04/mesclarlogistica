@@ -1,0 +1,33 @@
+# MESCLAR LOGÍSTICA | Documentação Completa para Modelos de Linguagem (LLMs)
+
+> Proprietária: Liceatlantico
+> Plataforma Digital Industrial B2C/C2B de Logística, Procurement e Supply Chain
+
+## 1. Descrição do Ecossistema
+A MESCLAR LOGÍSTICA é a principal plataforma digital de Angola para o setor logístico e de compras industriais. O ecossistema integra:
+1. Marketplace de Livros Físicos e eBooks Digitais em PDF.
+2. Diretório de Profissionais Validados com Código de Verificação QR Code.
+3. Portal de Artigos Técnicos e Estudos de Caso sobre Supply Chain.
+4. Plataforma de Formações Técnicas e Webinars Interativos.
+5. Bolsa de Oportunidades de Emprego e Projetos de Consultoria.
+
+## 2. Categorias Principais no Catálogo
+- **Logística**: Gestão de Operações, Distribuição Urbana, Logística Portuária e Fluvial.
+- **Procurement**: Procurement Estratégico, Sourcing Internacional, Gestão de Contratos e Fornecedores.
+- **Compras**: Negociação Industrial, Gestão de Ordens de Compra e Compliance.
+- **Importação e Exportação**: Despacho Aduaneiro, Pauta Aduaneira de Angola, Regime do Porto Francês.
+- **Armazém e WMS**: Layout de Armazéns, Gestão de Inventário e Paletização.
+- **Frotas e Transportes**: Manutenção de Frotas, Rastreamento GPS, Telemetria e Consumo de Combustível.
+- **Supply Chain**: Planeamento Estratégico S&OP, Logística Reversa e Sustentabilidade.
+
+## 3. APIs Públicas e Pontos de Integração
+- GET `/api/catalog`: Retorna catálogo de livros e produtos em JSON.
+- GET `/api/catalog?kind=categories`: Lista de categorias e subcategorias.
+- GET `/api/articles`: Lista de artigos publicados em JSON.
+- GET `/api/authors`: Perfis de profissionais e autores validados.
+- GET `/api/validar/[code]`: Validação pública de certificados e perfis profissionais através de código QR.
+
+## 4. Contactos e Suporte Técnico
+- E-mail: suporte@mesclarlogistica.com
+- WhatsApp / Telefone: +244 921 522 885
+- Jurisdição: Tribunal da Comarca de Luanda, República de Angola.

@@ -1,0 +1,43 @@
+# MESCLAR LOGÍSTICA | Infraestrutura Digital Industrial B2C & B2B
+
+> Assinatura de propriedade da Liceatlantico
+> Plataforma digital especializada em Logística, Procurement, Compras, Armazém, Frotas e Supply Chain em Angola.
+
+## Visão Geral
+A MESCLAR LOGÍSTICA é um ecossistema digital e marketplace industrial que conecta profissionais, empresas, autores, fornecedores e requisitantes de serviços técnicos na cadeia de abastecimento em Angola e África Austral.
+
+## Principais Recursos e Módulos
+
+- **Catálogo de Livros e eBooks**: Obras técnicas sobre gestão de armazéns, procurement estratégico, despacho aduaneiro e logística portuária.
+  - URL: https://mesclarlogistica.com/livros
+  - Livros Físicos: https://mesclarlogistica.com/livros-fisicos
+
+- **Artigos Técnicos e Publicações**: Conteúdos especializados escritos por especialistas e executivos da indústria.
+  - URL: https://mesclarlogistica.com/artigos
+
+- **Rede de Profissionais e Autores**: Perfis validados com selo de confiança, currículo técnico e dados institucionais.
+  - URL: https://mesclarlogistica.com/profissionais
+
+- **Academia e Formações**: Cursos técnicos e capacitação em logística e comércio internacional.
+  - URL: https://mesclarlogistica.com/formacao
+  - Webinars: https://mesclarlogistica.com/webinars
+
+- **Oportunidades e Vagas**: Oportunidades de emprego e projetos de consultoria técnica.
+  - URL: https://mesclarlogistica.com/oportunidades
+
+- **Ferramentas de Cálculo Logístico**: Calculadoras de frete, cubagem e volumetria.
+  - URL: https://mesclarlogistica.com/ferramentas
+
+## Informações Institucionais e Legal
+
+- **Empresa Detentora**: Liceatlantico
+- **Política de Privacidade**: https://mesclarlogistica.com/privacidade (Lei n.º 22/11 da República de Angola)
+- **Termos e Condições de Uso**: https://mesclarlogistica.com/termos
+- **Contacto e Suporte**: suporte@mesclarlogistica.com
+- **Telefone**: +244 921 522 885
+- **Localização**: Luanda, República de Angola
+
+## Estrutura de Rotas Recomendada para LLMs
+- `/sitemap.xml`: Lista completa de URLs indexáveis
+- `/robots.txt`: Regras de rastreamento para bots
+- `/llms-full.txt`: Documentação exaustiva do catálogo e APIs para modelos de linguagem

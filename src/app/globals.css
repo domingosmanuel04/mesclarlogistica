@@ -1,26 +1,268 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f6f3;
+  --foreground: #141414;
+  --mesclar-black: #0a0a0a;
+  --mesclar-gold: #c9a227;
+  --mesclar-gold-light: #e8cf6a;
+  --mesclar-gold-dark: #8f7318;
+  --mesclar-gray: #2c2c2c;
+  --mesclar-gray-muted: #647084;
+  --mesclar-border: #e2dfd6;
+  --mesclar-surface: #ffffff;
+  --mesclar-cream: #f3efe4;
+}
+
+.dark {
+  --background: #060d1a;
+  --foreground: #ffffff;
+  --mesclar-black: #ffffff;
+  --mesclar-surface: #0A192F;
+  --mesclar-border: #1e3a5f;
+  --mesclar-cream: #0E223F;
+  --mesclar-gray: #ffffff;
+  --mesclar-gray-muted: #cbd5e1;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-mesclar-black: var(--mesclar-black);
+  --color-mesclar-gold: var(--mesclar-gold);
+  --color-mesclar-gold-light: var(--mesclar-gold-light);
+  --color-mesclar-gold-dark: var(--mesclar-gold-dark);
+  --color-mesclar-gray: var(--mesclar-gray);
+  --color-mesclar-muted: var(--mesclar-gray-muted);
+  --color-mesclar-border: var(--mesclar-border);
+  --color-mesclar-surface: var(--mesclar-surface);
+  --color-mesclar-cream: var(--mesclar-cream);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+::selection {
+  background: color-mix(in srgb, var(--mesclar-gold) 35%, transparent);
+  color: var(--mesclar-black);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-fade-in-up-delay {
+  animation: fade-in-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards;
+  opacity: 0;
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0.85;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.mesh-bg {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--mesclar-gold) 12%, transparent), transparent),
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--mesclar-gold) 6%, transparent), transparent 40%);
+}
+
+.section-padding {
+  @apply py-20 lg:py-24;
+}
+
+.surface-card {
+  @apply rounded-2xl border border-mesclar-border/80 bg-mesclar-surface shadow-[0_1px_2px_rgba(10,10,10,0.04),0_12px_40px_-12px_rgba(10,10,10,0.08)];
+}
+
+.surface-card-hover {
+  @apply transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-mesclar-gold/35 hover:shadow-[0_8px_30px_-8px_rgba(201,162,39,0.25)];
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--mesclar-gold-light), var(--mesclar-gold), var(--mesclar-gold-dark));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.grid-pattern {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--mesclar-gold) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--mesclar-gold) 8%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.input-field {
+  @apply w-full rounded-xl border border-mesclar-border bg-white px-4 py-3 text-sm text-mesclar-gray shadow-sm transition-all placeholder:text-mesclar-muted/70 focus:border-mesclar-gold focus:outline-none focus:ring-2 focus:ring-mesclar-gold/20;
+}
+
+.dark .surface-card,
+.dark.surface-card {
+  background-color: #0A192F !important;
+  border-color: #1e3a5f !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.45);
+}
+
+.dark .input-field {
+  background-color: #0A192F !important;
+  border-color: #1e3a5f !important;
+  color: #ffffff !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="file"]),
+.dark select,
+.dark textarea {
+  background-color: #0A192F !important;
+  border-color: #1e3a5f !important;
+  color: #ffffff !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.dark table thead th {
+  color: #ffffff !important;
+  border-color: #1e3a5f !important;
+  background-color: #0E223F !important;
+}
+
+.dark table tbody tr {
+  border-color: #1e3a5f !important;
+  color: #ffffff !important;
+}
+
+/* Strict Dark Mode overrides for white backgrounds & light gradients */
+.dark div.bg-white,
+.dark section.bg-white,
+.dark main.bg-white,
+.dark article.bg-white,
+.dark header.bg-white,
+.dark footer.bg-white,
+.dark nav.bg-white,
+.dark form.bg-white,
+.dark table.bg-white,
+.dark tr.bg-white,
+.dark td.bg-white,
+.dark th.bg-white,
+.dark .bg-slate-50,
+.dark .bg-slate-100,
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: #0A192F !important;
+}
+
+/* White buttons convert to Gold in Dark Mode */
+.dark button.bg-white,
+.dark button[class*="bg-white"],
+.dark a[class*="bg-white"][class*="rounded"],
+.dark input[type="button"].bg-white,
+.dark input[type="submit"].bg-white {
+  background-color: #c9a227 !important;
+  color: #0a0a0a !important;
+  border-color: #c9a227 !important;
+}
+
+.dark button.bg-white:hover,
+.dark button[class*="bg-white"]:hover,
+.dark a[class*="bg-white"][class*="rounded"]:hover {
+  background-color: #e8cf6a !important;
+  color: #0a0a0a !important;
+}
+
+.dark .bg-mesclar-cream {
+  background-color: #0E223F !important;
+}
+
+.dark .border-mesclar-border {
+  border-color: #1e3a5f !important;
+}
+
+.dark .from-white,
+.dark .from-slate-50,
+.dark .from-slate-100,
+.dark .from-gray-50,
+.dark .from-mesclar-cream {
+  --tw-gradient-from: #0A192F !important;
+  --tw-gradient-to: rgb(10 25 47 / 0) !important;
+  --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-from), var(--tw-gradient-to)) !important;
+}
+
+.dark .via-white,
+.dark .via-slate-50,
+.dark .via-slate-100,
+.dark .via-gray-50,
+.dark .via-mesclar-cream {
+  --tw-gradient-to: rgb(10 25 47 / 0) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #0E223F, var(--tw-gradient-to) !important;
+}
+
+.dark .to-white,
+.dark .to-slate-50,
+.dark .to-slate-100,
+.dark .to-gray-50,
+.dark .to-mesclar-cream {
+  --tw-gradient-to: #0A192F !important;
+}
+

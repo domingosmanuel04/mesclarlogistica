@@ -1,0 +1,630 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  SELLER
+  ADMIN
+}
+
+enum ProductType {
+  EBOOK
+  PHYSICAL
+  BOTH
+}
+
+enum BookStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+enum OrderStatus {
+  AWAITING_PAYMENT
+  PROOF_SENT
+  PAYMENT_UNDER_REVIEW
+  PAYMENT_APPROVED
+  PAYMENT_REJECTED
+  PROCESSING
+  SHIPPED
+  AVAILABLE_PICKUP
+  DELIVERED
+  PICKED_UP
+  CANCELLED
+  COMPLETED
+}
+
+enum DeliveryMethod {
+  EMAIL
+  WHATSAPP
+}
+
+enum PhysicalFulfillment {
+  DELIVERY
+  PICKUP
+}
+
+enum NotificationType {
+  ORDER_CREATED
+  PROOF_RECEIVED
+  PAYMENT_APPROVED
+  PAYMENT_REJECTED
+  EBOOK_AVAILABLE
+  BOOK_SHIPPED
+  BOOK_PICKUP_READY
+  NEW_ORDER
+  NEW_PROOF
+  BOOK_PENDING_APPROVAL
+  BOOK_APPROVED
+  BOOK_REJECTED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  registrationNumber String? @unique
+  phone         String?
+  whatsapp      String?
+  passwordHash  String
+  role          Role      @default(CUSTOMER)
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  seller        Seller?
+  author        Author?
+  orders        Order[]
+  reviews       Review[]
+  notifications Notification[]
+  downloads     Download[]
+  addresses     Address[]
+  supportTickets SupportTicket[]
+
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
+  conversationsAsUser1 Conversation[] @relation("User1Conversations")
+  conversationsAsUser2 Conversation[] @relation("User2Conversations")
+  sentChatMessages     ChatMessage[]
+}
+
+model Seller {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio         String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  books         Book[]
+  bankAccounts  BankAccount[]
+  orders        Order[]       @relation("SellerOrders")
+  trainings     Training[]
+  articles      Article[]
+  jobs          Job[]
+  companies     Company[]
+  webinars      Webinar[]
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Article {
+  id          String        @id @default(cuid())
+  title       String
+  slug        String        @unique
+  excerpt     String?       @db.Text
+  content     String        @db.Text
+  coverUrl    String?
+  category    String?       @default("Logística e Procurement")
+  tags        String?
+  status      ArticleStatus @default(PUBLISHED)
+  views       Int           @default(0)
+  readTime    Int?          @default(5)
+  publishedAt DateTime?     @default(now())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  sellerId    String
+  seller      Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+  @@index([slug])
+  @@index([status])
+}
+
+enum EmploymentStatus {
+  EMPLOYED
+  UNEMPLOYED
+  FREELANCER
+  ENTREPRENEUR
+}
+
+enum AcademicStatus {
+  SECONDARY
+  UNIVERSITY_ATTENDING
+  BACHELOR
+  POSTGRAD
+  MASTERS
+}
+
+model Author {
+  id           String   @id @default(cuid())
+  userId       String?  @unique
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name         String
+  slug         String   @unique
+  bio          String?
+  specialty    String?
+  photoUrl     String?
+  coverUrl     String?
+  employmentStatus EmploymentStatus?
+  academicStatus   AcademicStatus?
+  academicHistory  String? @db.Text
+  professionalHistory String? @db.Text
+  softwareSkills      String? @db.Text
+  technicalSkills     String? @db.Text
+  languages           String? @db.Text
+  references          String? @db.Text
+  contactEmail        String?
+  contactWhatsapp     String?
+  trainingCertifications String? @db.Text
+  awardsRecognition      String? @db.Text
+  projects               String? @db.Text
+  additionalNotes     String? @db.Text
+  isValidated         Boolean  @default(false)
+  validatedAt         DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  books Book[]
+}
+
+model Category {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  description String?
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  subcategories Subcategory[]
+  books         Book[]
+}
+
+model Subcategory {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  books Book[]
+}
+
+model Book {
+  id              String      @id @default(cuid())
+  title           String
+  slug            String      @unique
+  description     String
+  summary         String?
+  authorId        String
+  author          Author      @relation(fields: [authorId], references: [id])
+  sellerId        String
+  seller          Seller      @relation(fields: [sellerId], references: [id])
+  categoryId      String
+  category        Category    @relation(fields: [categoryId], references: [id])
+  subcategoryId   String?
+  subcategory     Subcategory? @relation(fields: [subcategoryId], references: [id])
+  productType     ProductType
+  status          BookStatus  @default(PENDING)
+  rejectionReason String?
+  priceEbook      Int         @default(0)
+  pricePhysical   Int?
+  coverUrl        String?
+  pdfPath         String?
+  stockQuantity   Int         @default(0)
+  weightKg        Float?
+  dimensions      String?
+  allowsDelivery  Boolean     @default(true)
+  allowsPickup    Boolean     @default(true)
+  isbn            String?
+  publishYear     Int?
+  publisher       String?
+  keywords        String[]
+  salesCount      Int         @default(0)
+  ratingAvg       Float       @default(0)
+  ratingCount     Int         @default(0)
+  featured        Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  orderItems OrderItem[]
+  reviews    Review[]
+  downloads  Download[]
+  pickupPoints BookPickupPoint[]
+}
+
+model BookPickupPoint {
+  bookId        String
+  pickupPointId String
+  book          Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  pickupPoint   PickupPoint @relation(fields: [pickupPointId], references: [id], onDelete: Cascade)
+
+  @@id([bookId, pickupPointId])
+}
+
+model PickupPoint {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  province  String
+  municipality String
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  books            BookPickupPoint[]
+  physicalDelivery PhysicalDelivery[]
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  sellerId        String
+  seller          Seller      @relation("SellerOrders", fields: [sellerId], references: [id])
+  status          OrderStatus @default(AWAITING_PAYMENT)
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  customerWhatsapp String?
+  subtotal        Int
+  total           Int
+  couponCode      String?
+  discountAmount  Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  items            OrderItem[]
+  payment          Payment?
+  physicalDelivery PhysicalDelivery?
+  downloads        Download[]
+}
+
+model OrderItem {
+  id                  String             @id @default(cuid())
+  orderId             String
+  order               Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  bookId              String
+  book                Book               @relation(fields: [bookId], references: [id])
+  productType         ProductType
+  quantity            Int                @default(1)
+  unitPrice           Int
+  totalPrice          Int
+  deliveryMethod      DeliveryMethod?
+  physicalFulfillment PhysicalFulfillment?
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount          Int
+  reference       String
+  rejectionReason String?
+  approvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  proof PaymentProof?
+}
+
+model PaymentProof {
+  id         String   @id @default(cuid())
+  paymentId  String   @unique
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  filePath   String
+  fileName   String
+  mimeType   String
+  uploadedAt DateTime @default(now())
+}
+
+model PhysicalDelivery {
+  id              String              @id @default(cuid())
+  orderId         String              @unique
+  order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fulfillment     PhysicalFulfillment
+  pickupPointId   String?
+  pickupPoint     PickupPoint?        @relation(fields: [pickupPointId], references: [id])
+  fullName        String?
+  phone           String?
+  whatsapp        String?
+  province        String?
+  municipality    String?
+  neighborhood    String?
+  street          String?
+  houseNumber     String?
+  referencePoint  String?
+  trackingNotes   String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model Download {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id])
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id])
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, bookId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+model BankAccount {
+  id            String   @id @default(cuid())
+  sellerId      String
+  seller        Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  bankName      String
+  accountHolder String
+  iban          String
+  expressPhone  String?
+  accountNumber String
+  isDefault     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Address {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String
+  phone        String
+  whatsapp     String?
+  province     String
+  municipality String
+  neighborhood String
+  street       String
+  houseNumber  String
+  reference    String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Banner {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String?
+  imageUrl  String?
+  linkUrl   String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SiteSettings {
+  id              String   @id @default("default")
+  contactEmail    String?
+  contactWhatsapp String?
+  socialLinks     Json?
+  aboutText       String?  @db.Text
+  updatedAt       DateTime @updatedAt
+}
+
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  description   String?
+  percentOff    Int?
+  amountOff     Int?
+  minOrderTotal Int       @default(0)
+  maxUses       Int?
+  usedCount     Int       @default(0)
+  active        Boolean   @default(true)
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  email     String
+  subject   String
+  message   String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Training {
+  id        String   @id @default(cuid())
+  sellerId  String
+  seller    Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  title     String
+  description String?  @db.Text
+  bannerUrl String
+  linkUrl   String
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, sortOrder])
+}
+
+model Webinar {
+  id          String    @id @default(cuid())
+  sellerId    String
+  seller      Seller    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  title       String
+  description String    @db.Text
+  bannerUrl   String
+  linkUrl     String
+  speaker     String?
+  eventDate   DateTime?
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([active, sortOrder])
+}
+
+enum JobLinkType {
+  WHATSAPP
+  LINKEDIN
+  WEBSITE
+  BANNER
+}
+
+enum JobStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+model Job {
+  id              String      @id @default(cuid())
+  sellerId        String?
+  seller          Seller?     @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  title           String
+  company         String
+  location        String      @default("Luanda")
+  type            String      @default("Tempo Inteiro")
+  description     String      @db.Text
+  tags            String?
+  linkType        JobLinkType @default(WHATSAPP)
+  linkUrl         String      @default("")
+  bannerUrl       String?
+  status          JobStatus   @default(APPROVED)
+  rejectionReason String?
+  active          Boolean     @default(true)
+  sortOrder       Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([active, sortOrder])
+  @@index([status])
+}
+
+enum CompanyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Company {
+  id              String        @id @default(cuid())
+  sellerId        String?
+  seller          Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  name            String
+  category        String
+  location        String
+  coverage        String        @default("Nacional")
+  services        String        @db.Text
+  description     String?       @db.Text
+  email           String?
+  phone           String?
+  whatsapp        String?
+  website         String?
+  logoUrl         String?
+  certified       Boolean       @default(false)
+  status          CompanyStatus @default(PENDING)
+  rejectionReason String?
+  active          Boolean       @default(true)
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, active, sortOrder])
+}
+
+model Conversation {
+  id            String        @id @default(cuid())
+  user1Id       String
+  user1         User          @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2Id       String
+  user2         User          @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+  lastMessageAt DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  messages      ChatMessage[]
+
+  @@unique([user1Id, user2Id])
+  @@index([user1Id])
+  @@index([user2Id])
+  @@index([lastMessageAt])
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content        String       @db.Text
+  attachmentUrl  String?
+  read           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+
