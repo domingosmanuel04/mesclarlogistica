@@ -1,67 +1,93 @@
 <?php
-// Reverse Proxy Fallback for Next.js (PM2 process on port 3000 / 3020)
-$ports = array('3000', '3020', '3001');
-$target_port = getenv('PORT') ?: '3000';
-$response = false;
-$http_code = 502;
-$header_text = '';
-$body = '';
+// Bulletproof Socket Proxy for Next.js / PM2 on Shared Hosting
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
 
-foreach (array_unique(array_merge(array($target_port), $ports)) as $port) {
-    $ch = curl_init();
-    $url = 'http://127.0.0.1:' . $port . $_SERVER['REQUEST_URI'];
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_HEADER, true);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+$target_ports = array(3000, 3020, 3001, 8080);
+$content = false;
+$status_code = 502;
 
-    $headers = array();
-    if (function_exists('getallheaders')) {
-        foreach (getallheaders() as $name => $value) {
-            if (strtolower($name) !== 'host') {
-                $headers[] = "$name: $value";
+foreach ($target_ports as $port) {
+    $fp = @fsockopen("127.0.0.1", $port, $errno, $errstr, 2);
+    if ($fp) {
+        $uri = $_SERVER['REQUEST_URI'] ?? '/';
+        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        
+        $out = "$method $uri HTTP/1.1\r\n";
+        $out .= "Host: " . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "\r\n";
+        $out .= "Connection: Close\r\n";
+        
+        if (isset($_SERVER['HTTP_USER_AGENT'])) {
+            $out .= "User-Agent: " . $_SERVER['HTTP_USER_AGENT'] . "\r\n";
+        }
+        if (isset($_SERVER['HTTP_ACCEPT'])) {
+            $out .= "Accept: " . $_SERVER['HTTP_ACCEPT'] . "\r\n";
+        }
+        if (isset($_SERVER['HTTP_COOKIE'])) {
+            $out .= "Cookie: " . $_SERVER['HTTP_COOKIE'] . "\r\n";
+        }
+        
+        $body = @file_get_contents('php://input');
+        if (!empty($body)) {
+            $out .= "Content-Type: " . ($_SERVER['CONTENT_TYPE'] ?? 'application/json') . "\r\n";
+            $out .= "Content-Length: " . strlen($body) . "\r\n\r\n";
+            $out .= $body;
+        } else {
+            $out .= "\r\n";
+        }
+        
+        fwrite($fp, $out);
+        $raw_response = '';
+        while (!feof($fp)) {
+            $raw_response .= fgets($fp, 8192);
+        }
+        fclose($fp);
+
+        if (!empty($raw_response)) {
+            $parts = explode("\r\n\r\n", $raw_response, 2);
+            $raw_headers = $parts[0] ?? '';
+            $content = $parts[1] ?? '';
+
+            if (preg_match('#HTTP/1\.[01]\s+(\d+)#', $raw_headers, $matches)) {
+                $status_code = (int)$matches[1];
+            } else {
+                $status_code = 200;
             }
+
+            http_response_code($status_code);
+            foreach (explode("\r\n", $raw_headers) as $h) {
+                if (preg_match('/^(Content-Type|Set-Cookie|Location|Cache-Control|X-):/i', $h)) {
+                    header($h, false);
+                }
+            }
+            echo $content;
+            exit;
         }
     }
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-    if (in_array($_SERVER['REQUEST_METHOD'], array('POST', 'PUT', 'PATCH', 'DELETE'))) {
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $_SERVER['REQUEST_METHOD']);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, file_get_contents('php://input'));
-    }
-
-    $res = curl_exec($ch);
-    if ($res !== false) {
-        $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        $header_text = substr($res, 0, $header_size);
-        $body = substr($res, $header_size);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        $response = true;
-        break;
-    }
-    curl_close($ch);
 }
 
-if (!$response) {
-    http_response_code(502);
-    header('Content-Type: text/html; charset=utf-8');
-    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mesclar Logística</title></head>';
-    echo '<body style="font-family:sans-serif;text-align:center;padding:50px;background:#f9f9f9;">';
-    echo '<h2>502 Bad Gateway - Servidor da Aplicação Offline</h2>';
-    echo '<p>O serviço Node.js / Next.js não está a responder nas portas locais (3000, 3020). Por favor verifique o PM2 no servidor.</p>';
-    echo '</body></html>';
-    exit;
-}
-
-http_response_code($http_code);
-$header_lines = explode("\r\n", $header_text);
-foreach ($header_lines as $i => $header) {
-    if ($i === 0) continue;
-    if (!empty($header)) {
-        header($header);
-    }
-}
-echo $body;
+http_response_code(502);
+header("Content-Type: text/html; charset=UTF-8");
+?>
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mesclar Logística</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+        .card { background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 480px; border: 1px solid #334155; }
+        h1 { color: #d97706; font-size: 24px; margin-bottom: 12px; }
+        p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+        .btn { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #d97706; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Mesclar Logística | Procurement</h1>
+        <p>A aplicação está a ser iniciada no servidor. Se esta mensagem persistir, verifique o serviço PM2 no terminal.</p>
+        <a href="/" class="btn" onclick="location.reload(); return false;">Recarregar Página</a>
+    </div>
+</body>
+</html>
