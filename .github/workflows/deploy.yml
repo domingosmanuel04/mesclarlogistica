@@ -16,15 +16,10 @@ jobs:
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY || secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            cd /mnt/home103/mesclarl/mesclar
-            git pull origin main
-            npm ci
-            npx prisma generate
-            npx prisma db push --accept-data-loss
-            npm run build
-            pm2 restart mesclar-logistica || pm2 start npm --name "mesclar-logistica" -- start
-            pm2 save
+            cd /mnt/home103/mesclarl/mesclar || cd $HOME/mesclar
+            git fetch origin main
+            git reset --hard origin/main
+            bash scripts/deploy.sh
