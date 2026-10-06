@@ -1,0 +1,30 @@
+name: Deploy Automático AngOWeb
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy em Produção
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Executar Deploy no Servidor AngOWeb
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            cd /mnt/home103/mesclarl/mesclar
+            git pull origin main
+            npm ci
+            npx prisma generate
+            npx prisma db push --accept-data-loss
+            npm run build
+            pm2 restart mesclar-logistica || pm2 start npm --name "mesclar-logistica" -- start
+            pm2 save
