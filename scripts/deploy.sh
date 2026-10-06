@@ -24,6 +24,13 @@ if [ ! -f "$ROOT_DIR/.env" ] && [ -f "$ROOT_DIR/.env.example" ]; then
   cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
 fi
 
+# Ensure DATABASE_URL is valid in .env to prevent Prisma validation errors
+if ! grep -q '^DATABASE_URL=.*postgres' "$ROOT_DIR/.env" 2>/dev/null; then
+  echo "=== Configuring DATABASE_URL in .env ==="
+  sed -i '/^DATABASE_URL=/d' "$ROOT_DIR/.env" 2>/dev/null || true
+  echo 'DATABASE_URL="postgresql://mesclar:mesclar_secret@localhost:5432/mesclar_logistica?schema=public"' >> "$ROOT_DIR/.env"
+fi
+
 echo "=== 2. Installing dependencies ==="
 npm ci || npm install
 
@@ -32,6 +39,7 @@ npx prisma generate
 npx prisma db push --accept-data-loss || true
 
 echo "=== 4. Building Next.js application ==="
+export NODE_OPTIONS="--max-old-space-size=2048"
 npm run build
 
 echo "=== 5. Syncing web root proxy files (.htaccess & index.php) ==="
