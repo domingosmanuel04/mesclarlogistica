@@ -14,8 +14,8 @@ jobs:
       - name: Executar Deploy no Servidor AngOWeb
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
+          host: ${{ secrets.SSH_HOST || 'mesclarlogistica.com' }}
+          username: ${{ secrets.SSH_USERNAME || 'mesclarl' }}
           key: ${{ secrets.SSH_PRIVATE_KEY || secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
