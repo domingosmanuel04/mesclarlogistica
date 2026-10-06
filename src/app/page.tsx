@@ -78,6 +78,9 @@ export default async function HomePage() {
       where: { active: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
       take: 3,
+    }).catch((err) => {
+      console.error("Error fetching trainings:", err);
+      return [];
     }),
     prisma.article.findMany({
       where: { status: "PUBLISHED" },
@@ -90,6 +93,9 @@ export default async function HomePage() {
           },
         },
       },
+    }).catch((err) => {
+      console.error("Error fetching articles:", err);
+      return [];
     }),
     getJobsWithInitialSeed(),
   ]);
