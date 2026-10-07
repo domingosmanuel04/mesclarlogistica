@@ -11,35 +11,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH Key
-        if: ${{ secrets.SSH_PRIVATE_KEY != '' || secrets.SSH_KEY != '' }}
+      - name: Executar Deploy no Servidor AngOWeb
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST || 'mesclarlogistica.com' }}
           username: ${{ secrets.SSH_USERNAME || 'mesclarl' }}
           key: ${{ secrets.SSH_PRIVATE_KEY || secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            if [ -d "/mnt/home103/mesclarl/mesclar" ]; then
-              cd /mnt/home103/mesclarl/mesclar
-            elif [ -d "$HOME/mesclar" ]; then
-              cd "$HOME/mesclar"
-            elif [ -d "$HOME/public_html/mesclar" ]; then
-              cd "$HOME/public_html/mesclar"
-            elif [ -d "$HOME/public_html" ]; then
-              cd "$HOME/public_html"
-            fi
-            echo "=== Diretório de Implantação: $(pwd) ==="
-            git fetch origin main
-            git reset --hard origin/main
-            bash scripts/deploy.sh
-
-      - name: Deploy via SSH Password
-        if: ${{ (secrets.SSH_PRIVATE_KEY == '' && secrets.SSH_KEY == '') && secrets.SSH_PASSWORD != '' }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST || 'mesclarlogistica.com' }}
-          username: ${{ secrets.SSH_USERNAME || 'mesclarl' }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
@@ -56,10 +33,3 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             bash scripts/deploy.sh
-
-      - name: Verificar Segredos SSH
-        if: ${{ secrets.SSH_PRIVATE_KEY == '' && secrets.SSH_KEY == '' && secrets.SSH_PASSWORD == '' }}
-        run: |
-          echo "::error::Nenhuma credencial SSH (SSH_KEY, SSH_PRIVATE_KEY ou SSH_PASSWORD) foi configurada nos GitHub Repository Secrets!"
-          echo "Por favor, adicione SSH_HOST, SSH_USERNAME e SSH_KEY (ou SSH_PASSWORD) em Settings > Secrets and variables > Actions no GitHub."
-          exit 1
