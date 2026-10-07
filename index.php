@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 
 $target_ports = array(3000, 3020, 3001, 8080);
 $content = false;
-$status_code = 502;
+$status_code = 503;
 
 foreach ($target_ports as $port) {
     $fp = @fsockopen("127.0.0.1", $port, $errno, $errstr, 2);
@@ -16,7 +16,12 @@ foreach ($target_ports as $port) {
         $out = "$method $uri HTTP/1.1\r\n";
         $out .= "Host: " . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "\r\n";
         $out .= "Connection: Close\r\n";
+        $out .= "X-Forwarded-For: " . ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1') . "\r\n";
+        $out .= "X-Forwarded-Proto: " . ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http') . "\r\n";
         
+        if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+            $out .= "Authorization: " . $_SERVER['HTTP_AUTHORIZATION'] . "\r\n";
+        }
         if (isset($_SERVER['HTTP_USER_AGENT'])) {
             $out .= "User-Agent: " . $_SERVER['HTTP_USER_AGENT'] . "\r\n";
         }
@@ -66,28 +71,32 @@ foreach ($target_ports as $port) {
     }
 }
 
-http_response_code(502);
+http_response_code(503);
 header("Content-Type: text/html; charset=UTF-8");
+header("Retry-After: 5");
 ?>
 <!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mesclar Logística</title>
+    <meta http-equiv="refresh" content="4">
+    <title>Mesclar Logística | Servidor em Inicialização</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
-        .card { background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 480px; border: 1px solid #334155; }
-        h1 { color: #d97706; font-size: 24px; margin-bottom: 12px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #071324; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+        .card { background: #0e223f; padding: 40px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 480px; border: 1px solid #1e3a5f; }
+        .logo { font-size: 13px; font-weight: 800; letter-spacing: 0.2em; color: #d97706; text-transform: uppercase; margin-bottom: 16px; }
+        h1 { color: #ffffff; font-size: 22px; margin-bottom: 12px; font-weight: 700; }
         p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
-        .btn { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #d97706; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; }
+        .btn { display: inline-block; margin-top: 24px; padding: 12px 24px; background: linear-gradient(135deg, #d97706, #b45309); color: #fff; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 14px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>Mesclar Logística | Procurement</h1>
-        <p>A aplicação está a ser iniciada no servidor. Se esta mensagem persistir, verifique o serviço PM2 no terminal.</p>
-        <a href="/" class="btn" onclick="location.reload(); return false;">Recarregar Página</a>
+        <div class="logo">Mesclar Logística</div>
+        <h1>Servidor em Inicialização</h1>
+        <p>A aplicação está a ser atualizada ou iniciada no servidor. Esta página será recarregada automaticamente dentro de instantes.</p>
+        <a href="/" class="btn" onclick="location.reload(); return false;">Recarregar Agora</a>
     </div>
 </body>
 </html>

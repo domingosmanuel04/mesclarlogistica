@@ -24,12 +24,28 @@ if [ ! -f "$ROOT_DIR/.env" ] && [ -f "$ROOT_DIR/.env.example" ]; then
   cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
 fi
 
+# Ensure AUTH_SECRET is configured in .env
+if ! grep -q '^AUTH_SECRET=' "$ROOT_DIR/.env" 2>/dev/null; then
+  echo "=== Configuring AUTH_SECRET in .env ==="
+  echo 'AUTH_SECRET="mesclar-logistica-secret-key-prod-2026-minimum-32-bytes"' >> "$ROOT_DIR/.env"
+fi
+
+# Ensure NEXTAUTH_URL is configured in .env
+if ! grep -q '^NEXTAUTH_URL=' "$ROOT_DIR/.env" 2>/dev/null; then
+  echo 'NEXTAUTH_URL="https://mesclarlogistica.com"' >> "$ROOT_DIR/.env"
+fi
+
 # Ensure DATABASE_URL is valid in .env to prevent Prisma validation errors
 if ! grep -q '^DATABASE_URL=.*postgres' "$ROOT_DIR/.env" 2>/dev/null; then
   echo "=== Configuring DATABASE_URL in .env ==="
   sed -i '/^DATABASE_URL=/d' "$ROOT_DIR/.env" 2>/dev/null || true
   echo 'DATABASE_URL="postgresql://mesclar:mesclar_secret@localhost:5432/mesclar_logistica?schema=public"' >> "$ROOT_DIR/.env"
 fi
+
+# Export environment variables for the build process
+set -a
+[ -f "$ROOT_DIR/.env" ] && . "$ROOT_DIR/.env"
+set +a
 
 echo "=== 2. Installing dependencies ==="
 npm ci || npm install
@@ -51,7 +67,7 @@ for PUBLIC_DIR in "$HOME/public_html" "/mnt/home103/mesclarl/public_html" "$ROOT
 done
 
 echo "=== 6. Restarting PM2 process ==="
-pm2 restart mesclar-logistica || pm2 restart mesclar || pm2 start npm --name "mesclar-logistica" -- start
+PORT=3000 pm2 restart mesclar-logistica --update-env 2>/dev/null || PORT=3000 pm2 restart mesclar --update-env 2>/dev/null || PORT=3000 pm2 start npm --name "mesclar-logistica" -- start
 pm2 save || true
 
 echo "=== 7. Checking PM2 Status ==="

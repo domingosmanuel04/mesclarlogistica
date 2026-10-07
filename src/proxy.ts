@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
   if (isAdminRoute || isProfessionalRoute || isAccountRoute) {
     const token = await getToken({
       req: request,
-      secret: process.env.AUTH_SECRET,
+      secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "mesclar-logistica-secret-key-prod-2026-minimum-32-bytes",
     });
 
     if (!token) {

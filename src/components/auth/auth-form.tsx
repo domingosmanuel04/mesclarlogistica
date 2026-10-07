@@ -260,9 +260,6 @@ export function LoginForm() {
         <Button type="submit" variant="gold" className="w-full" size="lg" disabled={loading} leftIcon={LogIn}>
           {loading ? "A entrar..." : "Entrar"}
         </Button>
-        <p className="text-center text-[11px] text-mesclar-muted">
-          Demo Admin: MESC.AD0100 (ou admin@mesclar.ao) / admin123 · Profissional: MESC.ME0101 / vendedor123
-        </p>
       </form>
     </AuthShell>
   );
