@@ -50,18 +50,18 @@ fi
 # Export environment variables for the build and server execution process
 set -a
 [ -f "$ROOT_DIR/.env" ] && . "$ROOT_DIR/.env"
-export NODE_ENV=production
 export PORT=3000
 set +a
 
-echo "=== 2. Installing dependencies ==="
-npm ci || npm install
+echo "=== 2. Installing all dependencies (including Tailwind & build packages) ==="
+NODE_ENV=development npm ci --include=dev || NODE_ENV=development npm install --include=dev
 
 echo "=== 3. Generating Prisma client & syncing database ==="
 npx prisma generate
 npx prisma db push --accept-data-loss || true
 
 echo "=== 4. Building Next.js application ==="
+export NODE_ENV=production
 export NODE_OPTIONS="--max-old-space-size=2048"
 npm run build
 
