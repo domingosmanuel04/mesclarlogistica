@@ -6,11 +6,17 @@ if [ -s "$NVM_DIR/nvm.sh" ]; then
   \. "$NVM_DIR/nvm.sh"
 fi
 
+# Add common Node / PM2 binary locations to PATH
+export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$PATH"
+export PATH="$HOME/.bin:$HOME/bin:$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
+
 ROOT_DIR="$(pwd)"
 if [ -d "/mnt/home103/mesclarl/mesclar" ]; then
   ROOT_DIR="/mnt/home103/mesclarl/mesclar"
 elif [ -d "$HOME/mesclar" ]; then
   ROOT_DIR="$HOME/mesclar"
+elif [ -d "$HOME/public_html/mesclar" ]; then
+  ROOT_DIR="$HOME/public_html/mesclar"
 fi
 
 cd "$ROOT_DIR"
@@ -42,9 +48,11 @@ if ! grep -q '^DATABASE_URL=.*postgres' "$ROOT_DIR/.env" 2>/dev/null; then
   echo 'DATABASE_URL="postgresql://mesclar:mesclar_secret@localhost:5432/mesclar_logistica?schema=public"' >> "$ROOT_DIR/.env"
 fi
 
-# Export environment variables for the build process
+# Export environment variables for the build and server execution process
 set -a
 [ -f "$ROOT_DIR/.env" ] && . "$ROOT_DIR/.env"
+export NODE_ENV=production
+export PORT=3000
 set +a
 
 echo "=== 2. Installing dependencies ==="
@@ -66,11 +74,19 @@ for PUBLIC_DIR in "$HOME/public_html" "/mnt/home103/mesclarl/public_html" "$ROOT
   fi
 done
 
-echo "=== 6. Restarting PM2 process ==="
-PORT=3000 pm2 restart mesclar-logistica --update-env 2>/dev/null || PORT=3000 pm2 restart mesclar --update-env 2>/dev/null || PORT=3000 pm2 start npm --name "mesclar-logistica" -- start
-pm2 save || true
-
-echo "=== 7. Checking PM2 Status ==="
-pm2 status || true
+echo "=== 6. Restarting Node / PM2 Process ==="
+if command -v pm2 &> /dev/null; then
+  PORT=3000 pm2 restart mesclar-logistica --update-env 2>/dev/null || \
+  PORT=3000 pm2 restart mesclar --update-env 2>/dev/null || \
+  PORT=3000 pm2 start server.js --name "mesclar-logistica" || \
+  PORT=3000 pm2 start npm --name "mesclar-logistica" -- start
+  pm2 save || true
+  pm2 status || true
+else
+  echo "=== PM2 not found, running server.js in background ==="
+  pkill -f "server.js" 2>/dev/null || true
+  PORT=3000 NODE_ENV=production nohup node server.js > server.log 2>&1 &
+  echo "Server started with PID: $!"
+fi
 
 echo "=== Deployment complete! ==="

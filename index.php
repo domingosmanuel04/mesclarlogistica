@@ -3,12 +3,14 @@
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
-$target_ports = array(3000, 3020, 3001, 8080);
+$target_ports = array(3000, 3020, 3001, 8080, 3002, 3003);
 $content = false;
-$status_code = 503;
 
 foreach ($target_ports as $port) {
     $fp = @fsockopen("127.0.0.1", $port, $errno, $errstr, 2);
+    if (!$fp) {
+        $fp = @fsockopen("localhost", $port, $errno, $errstr, 2);
+    }
     if ($fp) {
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -71,16 +73,17 @@ foreach ($target_ports as $port) {
     }
 }
 
-http_response_code(503);
+// Set status to 200/202 to prevent LiteSpeed/cPanel WebServer from hijacking with black 503 error document
+http_response_code(200);
 header("Content-Type: text/html; charset=UTF-8");
-header("Retry-After: 5");
+header("Cache-Control: no-cache, no-store, must-revalidate");
 ?>
 <!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="4">
+    <meta http-equiv="refresh" content="3">
     <title>Mesclar Logística | Servidor em Inicialização</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #071324; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
