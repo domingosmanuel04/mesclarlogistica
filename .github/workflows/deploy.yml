@@ -11,25 +11,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Executar Deploy no Servidor AngOWeb
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST || 'mesclarlogistica.com' }}
-          username: ${{ secrets.SSH_USERNAME || 'mesclarl' }}
-          key: ${{ secrets.SSH_PRIVATE_KEY || secrets.SSH_KEY }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            if [ -d "/mnt/home103/mesclarl/mesclar" ]; then
-              cd /mnt/home103/mesclarl/mesclar
-            elif [ -d "$HOME/mesclar" ]; then
-              cd "$HOME/mesclar"
-            elif [ -d "$HOME/public_html/mesclar" ]; then
-              cd "$HOME/public_html/mesclar"
-            elif [ -d "$HOME/public_html" ]; then
-              cd "$HOME/public_html"
-            fi
-            echo "=== Diretório de Implantação: $(pwd) ==="
-            git fetch origin main
-            git reset --hard origin/main
-            bash scripts/deploy.sh
+      - name: Executar Deploy via SSH no Servidor AngOWeb
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST || 'mesclarlogistica.com' }}
+          SSH_USER: ${{ secrets.SSH_USERNAME || 'mesclarl' }}
+          SSH_PASS: ${{ secrets.SSH_PASSWORD }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY || secrets.SSH_KEY }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y sshpass
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -p $SSH_PORT -H $SSH_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          CMD='if [ -d "/mnt/home103/mesclarl/mesclar" ]; then cd /mnt/home103/mesclarl/mesclar; elif [ -d "$HOME/mesclar" ]; then cd "$HOME/mesclar"; elif [ -d "$HOME/public_html/mesclar" ]; then cd "$HOME/public_html/mesclar"; elif [ -d "$HOME/public_html" ]; then cd "$HOME/public_html"; fi; echo "=== Diretório de Implantação: $(pwd) ==="; git fetch origin main; git reset --hard origin/main; bash scripts/deploy.sh'
+
+          if [ -n "$SSH_KEY" ]; then
+            echo "=== Autenticando via Chave Privada SSH ==="
+            echo "$SSH_KEY" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh -p $SSH_PORT -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST "$CMD"
+          elif [ -n "$SSH_PASS" ]; then
+            echo "=== Autenticando via Palavra-passe SSH ==="
+            sshpass -p "$SSH_PASS" ssh -p $SSH_PORT -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "$CMD"
+          else
+            echo "::error::Nenhuma credencial SSH (SSH_KEY, SSH_PRIVATE_KEY ou SSH_PASSWORD) foi configurada nos Secrets do repositório no GitHub!"
+            echo "Por favor aceda a Settings > Secrets and variables > Actions e defina SSH_HOST, SSH_USERNAME e SSH_PASSWORD (ou SSH_KEY)."
+            exit 1
+          fi
