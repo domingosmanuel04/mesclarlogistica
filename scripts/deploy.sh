@@ -6,9 +6,8 @@ if [ -s "$NVM_DIR/nvm.sh" ]; then
   \. "$NVM_DIR/nvm.sh"
 fi
 
-# Add common Node / PM2 binary locations to PATH
-export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$PATH"
-export PATH="$HOME/.bin:$HOME/bin:$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
+# Add common Node / PM2 / cPanel binary locations to PATH
+export PATH="/opt/cpanel/ea-nodejs20/bin:/opt/cpanel/ea-nodejs18/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$HOME/.bin:$HOME/bin:$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
 
 ROOT_DIR="$(pwd)"
 if [ -d "/mnt/home103/mesclarl/mesclar" ]; then
@@ -74,7 +73,12 @@ for PUBLIC_DIR in "$HOME/public_html" "/mnt/home103/mesclarl/public_html" "$ROOT
   fi
 done
 
-echo "=== 6. Restarting Node / PM2 Process ==="
+echo "=== 6. Restarting Node / Passenger / PM2 Process ==="
+# Touch tmp/restart.txt for cPanel Phusion Passenger / LiteSpeed
+mkdir -p "$ROOT_DIR/tmp"
+touch "$ROOT_DIR/tmp/restart.txt"
+echo "=== Triggered cPanel Passenger reload via tmp/restart.txt ==="
+
 if command -v pm2 &> /dev/null; then
   PORT=3000 pm2 restart mesclar-logistica --update-env 2>/dev/null || \
   PORT=3000 pm2 restart mesclar --update-env 2>/dev/null || \
@@ -83,7 +87,7 @@ if command -v pm2 &> /dev/null; then
   pm2 save || true
   pm2 status || true
 else
-  echo "=== PM2 not found, running server.js in background ==="
+  echo "=== Running server.js in background ==="
   pkill -f "server.js" 2>/dev/null || true
   PORT=3000 NODE_ENV=production nohup node server.js > server.log 2>&1 &
   echo "Server started with PID: $!"
