@@ -218,7 +218,12 @@ export function LoginForm() {
     }
 
     const lower = identifier.toLowerCase();
-    if (lower.includes("admin")) {
+    if (
+      lower.includes("admin") ||
+      lower.includes("ad0100") ||
+      lower.includes("mesc.ad") ||
+      lower.startsWith("mesc.ad")
+    ) {
       window.location.href = "/admin";
     } else {
       window.location.href = "/profissional";

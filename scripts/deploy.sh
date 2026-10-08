@@ -91,6 +91,7 @@ NODE_ENV=development "$NODE_BIN" "$NPM_BIN" install @tailwindcss/postcss postcss
 echo "=== 3. Generating Prisma client & syncing database ==="
 "$NODE_BIN" "$NPX_BIN" prisma generate || true
 "$NODE_BIN" "$NPX_BIN" prisma db push --accept-data-loss || true
+"$NODE_BIN" "$NPX_BIN" prisma db seed || true
 
 echo "=== 4. Building Next.js application ==="
 export NODE_ENV=production
