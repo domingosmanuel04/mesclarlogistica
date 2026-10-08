@@ -34,6 +34,9 @@ fi
 
 cd "$ROOT_DIR"
 
+# Clean up legacy PostCSS MJS config if present to enforce CommonJS resolution
+rm -f "$ROOT_DIR/postcss.config.mjs" 2>/dev/null || true
+
 echo "=== 0. Immediate Sync of Web Root Proxy Files (.htaccess & index.php) ==="
 for PUBLIC_DIR in "$HOME/public_html" "/home/mesclarl/public_html" "/mnt/home103/mesclarl/public_html" "$ROOT_DIR/public"; do
   if [ -d "$PUBLIC_DIR" ]; then
@@ -45,6 +48,7 @@ done
 echo "=== 1. Pulling latest changes from main ==="
 git fetch origin main
 git reset --hard origin/main
+rm -f "$ROOT_DIR/postcss.config.mjs" 2>/dev/null || true
 
 if [ ! -f "$ROOT_DIR/.env" ] && [ -f "$ROOT_DIR/.env.example" ]; then
   echo "=== Creating .env from .env.example ==="
@@ -76,16 +80,13 @@ set +a
 
 echo "=== Using Node Binary: $NODE_BIN ($($NODE_BIN -v 2>/dev/null || true)) ==="
 
-echo "=== 2. Installing all dependencies (forcing PostCSS & Tailwind) ==="
+echo "=== 2. Installing all dependencies (including PostCSS & Tailwind) ==="
 "$NODE_BIN" "$NPM_BIN" config set omit "" 2>/dev/null || true
 "$NODE_BIN" "$NPM_BIN" config set production false 2>/dev/null || true
 NODE_ENV=development "$NODE_BIN" "$NPM_BIN" install --include=dev --production=false
 
-# Guarantee @tailwindcss/postcss is explicitly installed
-if [ ! -d "$ROOT_DIR/node_modules/@tailwindcss/postcss" ]; then
-  echo "=== Explicitly installing @tailwindcss/postcss ==="
-  NODE_ENV=development "$NODE_BIN" "$NPM_BIN" install @tailwindcss/postcss tailwindcss postcss --production=false --no-save
-fi
+echo "=== Guaranteeing PostCSS & Tailwind Packages ==="
+NODE_ENV=development "$NODE_BIN" "$NPM_BIN" install @tailwindcss/postcss postcss autoprefixer tailwindcss --production=false
 
 echo "=== 3. Generating Prisma client & syncing database ==="
 "$NODE_BIN" "$NPX_BIN" prisma generate || true
