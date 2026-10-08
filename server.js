@@ -3,37 +3,80 @@ const { parse } = require("url");
 const next = require("next");
 
 const dev = false;
-const rawPort = process.env.PORT || "3000";
-const port = isNaN(Number(rawPort)) ? rawPort : parseInt(rawPort, 10);
-
 const app = next({ dev });
 const handle = app.getRequestHandler();
+
+const initialPort = parseInt(process.env.PORT || "3000", 10);
+const portsToTry = [
+  isNaN(initialPort) ? 3000 : initialPort,
+  3000,
+  3020,
+  3001,
+  8080,
+  3002,
+  3003
+].filter((p, i, self) => !isNaN(p) && self.indexOf(p) === i);
 
 app
   .prepare()
   .then(() => {
-    const server = createServer(async (req, res) => {
-      try {
-        const parsedUrl = parse(req.url, true);
-        await handle(req, res, parsedUrl);
-      } catch (err) {
-        console.error("Error handling request", req.url, err);
-        res.statusCode = 500;
-        res.end("Internal Server Error");
-      }
-    });
-
-    if (typeof port === "number") {
-      server.listen(port, "0.0.0.0", (err) => {
-        if (err) throw err;
-        console.log(`> Mesclar Logística listening on http://0.0.0.0:${port}`);
+    const rawPort = process.env.PORT;
+    // Check if process.env.PORT is a UNIX domain socket (cPanel Passenger)
+    if (rawPort && isNaN(Number(rawPort))) {
+      const server = createServer(async (req, res) => {
+        try {
+          const parsedUrl = parse(req.url, true);
+          await handle(req, res, parsedUrl);
+        } catch (err) {
+          console.error("Error handling request", req.url, err);
+          res.statusCode = 500;
+          res.end("Internal Server Error");
+        }
       });
-    } else {
-      server.listen(port, (err) => {
+      server.listen(rawPort, (err) => {
         if (err) throw err;
-        console.log(`> Mesclar Logística listening on socket ${port}`);
+        console.log(`> Mesclar Logística listening on UNIX socket ${rawPort}`);
+      });
+      return;
+    }
+
+    let currentPortIndex = 0;
+
+    function startServerOnPort(index) {
+      if (index >= portsToTry.length) {
+        console.error("Error: Could not bind to any fallback port.");
+        process.exit(1);
+      }
+
+      const targetPort = portsToTry[index];
+      const server = createServer(async (req, res) => {
+        try {
+          const parsedUrl = parse(req.url, true);
+          await handle(req, res, parsedUrl);
+        } catch (err) {
+          console.error("Error handling request", req.url, err);
+          res.statusCode = 500;
+          res.end("Internal Server Error");
+        }
+      });
+
+      server.on("error", (err) => {
+        if (err.code === "EADDRINUSE") {
+          console.warn(`Port ${targetPort} is already in use. Trying next port...`);
+          currentPortIndex++;
+          startServerOnPort(currentPortIndex);
+        } else {
+          console.error("Server error:", err);
+          process.exit(1);
+        }
+      });
+
+      server.listen(targetPort, "0.0.0.0", () => {
+        console.log(`> Mesclar Logística active on http://0.0.0.0:${targetPort}`);
       });
     }
+
+    startServerOnPort(0);
   })
   .catch((err) => {
     console.error("Failed to start server", err);
