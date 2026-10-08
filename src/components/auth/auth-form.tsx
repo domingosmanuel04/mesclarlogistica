@@ -298,47 +298,50 @@ export function RegisterForm() {
     setLoading(true);
     setError("");
 
-    if (!acceptedTerms) {
-      setError("Deve marcar a caixa de seleção para aceitar os Termos e a Política de Privacidade.");
-      setLoading(false);
-      return;
-    }
+    try {
+      if (!acceptedTerms) {
+        setError("Deve marcar a caixa de seleção para aceitar os Termos e a Política de Privacidade.");
+        return;
+      }
 
-    const fd = new FormData(e.currentTarget);
-    const password = fd.get("password") as string;
-    if (password.length < 6) {
-      setError("A palavra-passe deve ter pelo menos 6 caracteres.");
-      setLoading(false);
-      return;
-    }
-    if (password !== fd.get("confirmPassword")) {
-      setError("As palavras-passe não coincidem.");
-      setLoading(false);
-      return;
-    }
-    const userEmail = (fd.get("email") as string).trim();
-    const userName = (fd.get("name") as string).trim();
-    const res = await register({
-      name: userName,
-      email: userEmail,
-      phone: (fd.get("phone") as string) || undefined,
-      whatsapp: (fd.get("whatsapp") as string) || undefined,
-      password,
-      role: "SELLER",
-    });
-    setLoading(false);
-    if (!res.ok) {
-      setError(res.error ?? "Erro ao registar.");
-      return;
-    }
-    if (res.registrationNumber) {
-      setRegisteredModal({
-        id: res.registrationNumber,
-        email: userEmail,
+      const fd = new FormData(e.currentTarget);
+      const password = fd.get("password") as string;
+      if (password.length < 6) {
+        setError("A palavra-passe deve ter pelo menos 6 caracteres.");
+        return;
+      }
+      if (password !== fd.get("confirmPassword")) {
+        setError("As palavras-passe não coincidem.");
+        return;
+      }
+      const userEmail = (fd.get("email") as string).trim();
+      const userName = (fd.get("name") as string).trim();
+      const res = await register({
         name: userName,
+        email: userEmail,
+        phone: (fd.get("phone") as string) || undefined,
+        whatsapp: (fd.get("whatsapp") as string) || undefined,
+        password,
+        role: "SELLER",
       });
-    } else {
-      window.location.href = "/profissional";
+
+      if (!res.ok) {
+        setError(res.error ?? "Erro ao registar.");
+        return;
+      }
+      if (res.registrationNumber) {
+        setRegisteredModal({
+          id: res.registrationNumber,
+          email: userEmail,
+          name: userName,
+        });
+      } else {
+        window.location.href = "/profissional";
+      }
+    } catch {
+      setError("Ocorreu um erro ao criar a conta. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
   }
 

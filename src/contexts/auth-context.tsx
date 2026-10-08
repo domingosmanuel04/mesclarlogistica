@@ -94,24 +94,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password: string;
       role?: DemoRole;
     }) => {
-      const r = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      const json = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        return { ok: false, error: (json.error as string) || "Erro ao registar." };
+      try {
+        const r = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          return { ok: false, error: (json.error as string) || "Erro ao registar." };
+        }
+        try {
+          await signIn("credentials", {
+            email: json.registrationNumber || data.email,
+            password: data.password,
+            redirect: false,
+          });
+        } catch (err) {
+          console.error("[register:auto-login-error]", err);
+        }
+        return { ok: true, registrationNumber: json.registrationNumber };
+      } catch {
+        return { ok: false, error: "Erro ao comunicar com o servidor. Tente novamente." };
       }
-      const loginRes = await signIn("credentials", {
-        email: json.registrationNumber || data.email,
-        password: data.password,
-        redirect: false,
-      });
-      if (loginRes?.error) {
-        return { ok: false, error: "Conta criada com sucesso. Inicie sessão com o seu ID de Registo." };
-      }
-      return { ok: true, registrationNumber: json.registrationNumber };
     },
     []
   );
