@@ -25,53 +25,62 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const article = await prisma.article.findUnique({
-    where: { slug },
-    select: { title: true, excerpt: true, coverUrl: true },
-  });
+  try {
+    const article = await prisma.article.findUnique({
+      where: { slug },
+      select: { title: true, excerpt: true, coverUrl: true },
+    });
 
-  if (!article) return { title: "Artigo não encontrado" };
+    if (!article) return { title: "Artigo não encontrado" };
 
-  return {
-    title: `${article.title} | Mesclar Logística`,
-    description: article.excerpt || "Artigo especializado em logística, procurement e cadeia de abastecimento.",
-    openGraph: {
-      title: article.title,
-      description: article.excerpt || undefined,
-      images: article.coverUrl ? [article.coverUrl] : undefined,
-    },
-  };
+    return {
+      title: `${article.title} | Mesclar Logística`,
+      description: article.excerpt || "Artigo especializado em logística, procurement e cadeia de abastecimento.",
+      openGraph: {
+        title: article.title,
+        description: article.excerpt || undefined,
+        images: article.coverUrl ? [article.coverUrl] : undefined,
+      },
+    };
+  } catch {
+    return { title: "Artigo | Mesclar Logística" };
+  }
 }
 
 export default async function ArtigoSinglePage({ params }: Props) {
   const { slug } = await params;
 
-  const article = await prisma.article.findUnique({
-    where: { slug },
-    include: {
-      seller: {
-        include: {
-          user: {
-            select: {
-              name: true,
-              email: true,
-              author: {
-                select: {
-                  id: true,
-                  name: true,
-                  slug: true,
-                  photoUrl: true,
-                  specialty: true,
-                  bio: true,
-                  contactWhatsapp: true,
+  let article: any = null;
+  try {
+    article = await prisma.article.findUnique({
+      where: { slug },
+      include: {
+        seller: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true,
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    photoUrl: true,
+                    specialty: true,
+                    bio: true,
+                    contactWhatsapp: true,
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-  });
+    });
+  } catch {
+    article = null;
+  }
 
   if (!article || article.status !== "PUBLISHED") {
     notFound();
@@ -91,14 +100,19 @@ export default async function ArtigoSinglePage({ params }: Props) {
   const authorSpecialty = author?.specialty || "Autor e Especialista em Cadeia Logística";
 
   // Recommended articles (excluding current)
-  const relatedArticles = await prisma.article.findMany({
-    where: {
-      status: "PUBLISHED",
-      id: { not: article.id },
-    },
-    take: 3,
-    orderBy: { publishedAt: "desc" },
-  });
+  let relatedArticles: any[] = [];
+  try {
+    relatedArticles = await prisma.article.findMany({
+      where: {
+        status: "PUBLISHED",
+        id: { not: article.id },
+      },
+      take: 3,
+      orderBy: { publishedAt: "desc" },
+    });
+  } catch {
+    relatedArticles = [];
+  }
 
   const articleUrl = `https://mesclarlogistica.ao/artigos/${article.slug}`;
   const whatsappShareText = encodeURIComponent(

@@ -12,10 +12,16 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function FormacaoPage() {
-  const trainings = await prisma.training.findMany({
-    where: { active: true },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-  });
+  let trainings: any[] = [];
+  try {
+    trainings = await prisma.training.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    });
+  } catch (err) {
+    console.error("Error loading trainings:", err);
+    trainings = [];
+  }
 
   return (
     <div>

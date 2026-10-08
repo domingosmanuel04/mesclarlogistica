@@ -58,30 +58,36 @@ export default async function ArtigosPage({ searchParams }: Props) {
     ];
   }
 
-  const articles = await prisma.article.findMany({
-    where,
-    orderBy: { publishedAt: "desc" },
-    include: {
-      seller: {
-        include: {
-          user: {
-            select: {
-              name: true,
-              email: true,
-              author: {
-                select: {
-                  name: true,
-                  slug: true,
-                  photoUrl: true,
-                  specialty: true,
+  let articles: any[] = [];
+  try {
+    articles = await prisma.article.findMany({
+      where,
+      orderBy: { publishedAt: "desc" },
+      include: {
+        seller: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true,
+                author: {
+                  select: {
+                    name: true,
+                    slug: true,
+                    photoUrl: true,
+                    specialty: true,
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-  });
+    });
+  } catch (err) {
+    console.error("Error loading articles:", err);
+    articles = [];
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-mesclar-cream/40 via-white to-white">
