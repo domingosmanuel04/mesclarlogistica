@@ -35,13 +35,31 @@ export async function proxy(request: NextRequest) {
       process.env.NEXTAUTH_SECRET ||
       "mesclar-logistica-secret-key-prod-2026-minimum-32-bytes";
 
-    let token = await getToken({ req: request, secret });
+    const isSecure =
+      request.url.startsWith("https://") ||
+      request.headers.get("x-forwarded-proto") === "https" ||
+      request.headers.get("x-forwarded-ssl") === "on";
+
+    let token = await getToken({
+      req: request,
+      secret,
+      secureCookie: isSecure,
+    });
+
+    if (!token) {
+      token = await getToken({
+        req: request,
+        secret,
+        secureCookie: !isSecure,
+      });
+    }
 
     if (!token) {
       token = await getToken({
         req: request,
         secret,
         cookieName: "authjs.session-token",
+        salt: "authjs.session-token",
       });
     }
 
@@ -50,6 +68,7 @@ export async function proxy(request: NextRequest) {
         req: request,
         secret,
         cookieName: "__Secure-authjs.session-token",
+        salt: "__Secure-authjs.session-token",
       });
     }
 
@@ -58,6 +77,7 @@ export async function proxy(request: NextRequest) {
         req: request,
         secret,
         cookieName: "next-auth.session-token",
+        salt: "next-auth.session-token",
       });
     }
 
@@ -66,6 +86,7 @@ export async function proxy(request: NextRequest) {
         req: request,
         secret,
         cookieName: "__Secure-next-auth.session-token",
+        salt: "__Secure-next-auth.session-token",
       });
     }
 

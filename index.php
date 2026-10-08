@@ -6,11 +6,33 @@ error_reporting(E_ALL);
 $target_ports = array(3000, 3020, 3001, 8080, 3002, 3003);
 $content = false;
 
+function unchunk_http_body($body) {
+    if (function_exists('http_chunked_decode')) {
+        $decoded = @http_chunked_decode($body);
+        if ($decoded !== false) return $decoded;
+    }
+    $parts = [];
+    $offset = 0;
+    while ($offset < strlen($body)) {
+        $pos = strpos($body, "\r\n", $offset);
+        if ($pos === false) break;
+        $hex = trim(substr($body, $offset, $pos - $offset));
+        $len = hexdec($hex);
+        if ($len === 0) break;
+        $offset = $pos + 2;
+        $parts[] = substr($body, $offset, $len);
+        $offset += $len + 2;
+    }
+    return !empty($parts) ? implode('', $parts) : $body;
+}
+
 $is_https = (
-    (isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] === '1')) ||
-    (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') ||
-    (isset($_SERVER['HTTP_X_FORWARDED_SSL']) && strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) === 'on') ||
-    (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443)
+    (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off' && $_SERVER['HTTPS'] !== '0') ||
+    (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') ||
+    (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) === 'on') ||
+    (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) ||
+    (!empty($_SERVER['REQUEST_SCHEME']) && strtolower($_SERVER['REQUEST_SCHEME']) === 'https') ||
+    (!empty($_SERVER['HTTP_CF_VISITOR']) && strpos($_SERVER['HTTP_CF_VISITOR'], 'https') !== false)
 );
 $proto = $is_https ? 'https' : 'http';
 
@@ -29,6 +51,8 @@ foreach ($target_ports as $port) {
         $out .= "X-Forwarded-For: " . ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1') . "\r\n";
         $out .= "X-Forwarded-Host: " . ($_SERVER['HTTP_HOST'] ?? 'mesclarlogistica.com') . "\r\n";
         $out .= "X-Forwarded-Proto: $proto\r\n";
+        $out .= "X-Forwarded-Ssl: " . ($is_https ? 'on' : 'off') . "\r\n";
+        $out .= "X-Url-Scheme: $proto\r\n";
         
         if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
             $out .= "Authorization: " . $_SERVER['HTTP_AUTHORIZATION'] . "\r\n";
@@ -70,9 +94,13 @@ foreach ($target_ports as $port) {
                 $status_code = 200;
             }
 
+            if (preg_match('/Transfer-Encoding:\s*chunked/i', $raw_headers)) {
+                $content = unchunk_http_body($content);
+            }
+
             http_response_code($status_code);
             foreach (explode("\r\n", $raw_headers) as $h) {
-                if (preg_match('/^(Content-Type|Set-Cookie|Location|Cache-Control|X-):/i', $h)) {
+                if (preg_match('/^(Content-Type|Set-Cookie|Location|Cache-Control|X-):/i', $h) && !preg_match('/^Transfer-Encoding:/i', $h)) {
                     header($h, false);
                 }
             }

@@ -70,15 +70,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     : null;
 
   const login = useCallback(async (identifier: string, password: string) => {
-    const res = await signIn("credentials", {
-      email: identifier,
-      password,
-      redirect: false,
-    });
-    if (res?.error) {
+    try {
+      const res = await signIn("credentials", {
+        email: identifier,
+        password,
+        redirect: false,
+      });
+      if (res?.error) {
+        return { ok: false, error: "ID de registo ou palavra-passe incorrectos." };
+      }
+      return { ok: true };
+    } catch {
       return { ok: false, error: "ID de registo ou palavra-passe incorrectos." };
     }
-    return { ok: true };
   }, []);
 
   const register = useCallback(
