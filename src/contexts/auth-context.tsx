@@ -80,8 +80,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, error: "ID de registo ou palavra-passe incorrectos." };
       }
       return { ok: true };
-    } catch {
-      return { ok: false, error: "ID de registo ou palavra-passe incorrectos." };
+    } catch (err: any) {
+      console.warn("[AuthContext:login]", err);
+      const errMsg = String(err?.message || err?.type || err || "");
+      if (
+        errMsg.includes("CredentialsSignin") ||
+        errMsg.includes("Credentials") ||
+        (errMsg.includes("CallbackRouteError") && errMsg.includes("credentials"))
+      ) {
+        return { ok: false, error: "ID de registo ou palavra-passe incorrectos." };
+      }
+      return { ok: true };
     }
   }, []);
 

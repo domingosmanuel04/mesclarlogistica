@@ -66,10 +66,15 @@ if ! grep -q '^NEXTAUTH_URL=' "$ROOT_DIR/.env" 2>/dev/null; then
   echo 'NEXTAUTH_URL="https://mesclarlogistica.com"' >> "$ROOT_DIR/.env"
 fi
 
+# Force 127.0.0.1:5432 instead of localhost:5432 in .env to prevent Node 20 IPv6 resolution errors
+if [ -f "$ROOT_DIR/.env" ]; then
+  sed -i 's/localhost:5432/127.0.0.1:5432/g' "$ROOT_DIR/.env" 2>/dev/null || true
+fi
+
 # Ensure DATABASE_URL is valid in .env to prevent Prisma validation errors
 if ! grep -q '^DATABASE_URL=' "$ROOT_DIR/.env" 2>/dev/null; then
   echo "=== Configuring default DATABASE_URL in .env ==="
-  echo 'DATABASE_URL="postgresql://mesclar:mesclar_secret@localhost:5432/mesclar_logistica?schema=public"' >> "$ROOT_DIR/.env"
+  echo 'DATABASE_URL="postgresql://mesclar:mesclar_secret@127.0.0.1:5432/mesclar_logistica?schema=public"' >> "$ROOT_DIR/.env"
 fi
 
 # Export environment variables for the build and server execution process
