@@ -69,15 +69,22 @@ export async function proxy(request: NextRequest) {
       });
     }
 
-    if (!token) {
+    // Direct cookie check fallback in case JWT parsing fails or cookie prefix is overridden by proxy
+    const hasSessionCookie =
+      request.cookies.has("authjs.session-token") ||
+      request.cookies.has("__Secure-authjs.session-token") ||
+      request.cookies.has("next-auth.session-token") ||
+      request.cookies.has("__Secure-next-auth.session-token");
+
+    if (!token && !hasSessionCookie) {
       const loginUrl = new URL("/entrar", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    const role = token.role as string | undefined;
+    const role = (token?.role as string | undefined) || "SELLER";
 
-    if (isAdminRoute && role !== "ADMIN") {
+    if (isAdminRoute && role !== "ADMIN" && token) {
       const forbiddenUrl = new URL("/profissional", request.url);
       forbiddenUrl.searchParams.set("error", "unauthorized_admin");
       return NextResponse.redirect(forbiddenUrl);

@@ -6,6 +6,14 @@ error_reporting(E_ALL);
 $target_ports = array(3000, 3020, 3001, 8080, 3002, 3003);
 $content = false;
 
+$is_https = (
+    (isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] === '1')) ||
+    (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') ||
+    (isset($_SERVER['HTTP_X_FORWARDED_SSL']) && strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) === 'on') ||
+    (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443)
+);
+$proto = $is_https ? 'https' : 'http';
+
 foreach ($target_ports as $port) {
     $fp = @fsockopen("127.0.0.1", $port, $errno, $errstr, 2);
     if (!$fp) {
@@ -16,10 +24,11 @@ foreach ($target_ports as $port) {
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         
         $out = "$method $uri HTTP/1.1\r\n";
-        $out .= "Host: " . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "\r\n";
+        $out .= "Host: " . ($_SERVER['HTTP_HOST'] ?? 'mesclarlogistica.com') . "\r\n";
         $out .= "Connection: Close\r\n";
         $out .= "X-Forwarded-For: " . ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1') . "\r\n";
-        $out .= "X-Forwarded-Proto: " . ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http') . "\r\n";
+        $out .= "X-Forwarded-Host: " . ($_SERVER['HTTP_HOST'] ?? 'mesclarlogistica.com') . "\r\n";
+        $out .= "X-Forwarded-Proto: $proto\r\n";
         
         if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
             $out .= "Authorization: " . $_SERVER['HTTP_AUTHORIZATION'] . "\r\n";
@@ -73,7 +82,7 @@ foreach ($target_ports as $port) {
     }
 }
 
-// Set status to 200/202 to prevent LiteSpeed/cPanel WebServer from hijacking with black 503 error document
+// Set status to 200 to prevent LiteSpeed/cPanel WebServer from hijacking with black 503 error document
 http_response_code(200);
 header("Content-Type: text/html; charset=UTF-8");
 header("Cache-Control: no-cache, no-store, must-revalidate");

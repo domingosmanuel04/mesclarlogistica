@@ -257,7 +257,7 @@ export function LoginForm() {
           required
           placeholder="MESC.XX0100"
         />
-        <Field label="Palavra-passe" name="password" type="password" icon={Lock} required />
+        <Field label="Palavra-passe" name="password" type="password" icon={Lock} required placeholder="••••••••" />
         <div className="flex justify-end">
           <Link href="/esqueci-senha" className="text-sm text-mesclar-gold-dark hover:underline">
             Esqueci minha palavra-passe
@@ -447,8 +447,8 @@ export function RegisterForm() {
           <Field label="Telefone" name="phone" type="tel" icon={Phone} placeholder="+244..." />
           <Field label="WhatsApp" name="whatsapp" type="tel" icon={Phone} placeholder="+244..." />
         </div>
-        <Field label="Palavra-passe" name="password" type="password" icon={Lock} required />
-        <Field label="Confirmar palavra-passe" name="confirmPassword" type="password" icon={Lock} required />
+        <Field label="Palavra-passe" name="password" type="password" icon={Lock} required placeholder="••••••••" />
+        <Field label="Confirmar palavra-passe" name="confirmPassword" type="password" icon={Lock} required placeholder="••••••••" />
 
         {/* Checkbox Obrigatório para Termos e Privacidade */}
         <div className="flex items-start gap-3 rounded-xl border border-mesclar-border dark:border-[#1e3a5f] bg-slate-50/50 dark:bg-[#0E223F]/50 p-3.5 shadow-xs">
@@ -466,7 +466,7 @@ export function RegisterForm() {
               Termos e Condições
             </Link>{" "}
             e a{" "}
-            <Link href="/privacidade" target="_blank" className="font-bold text-mesclar-black dark:text-white underline hover:text-mesclar-gold-dark">
+            <Link href="/privacidade" target="_blank" className="font-blank dark:text-white underline hover:text-mesclar-gold-dark">
               Política de Privacidade
             </Link>{" "}
             da plataforma MESCLAR LOGÍSTICA. <span className="text-rose-500 font-bold">*</span>
