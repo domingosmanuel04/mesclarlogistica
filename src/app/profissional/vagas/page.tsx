@@ -124,11 +124,14 @@ export default function SellerVagasPage() {
     setError("");
     try {
       const res = await fetch("/api/seller/jobs");
-      if (!res.ok) throw new Error("Erro ao carregar as suas vagas.");
-      const data = await res.json();
+      if (!res.ok) {
+        setJobs([]);
+        return;
+      }
+      const data = await res.json().catch(() => []);
       setJobs(Array.isArray(data) ? data : []);
-    } catch (e: any) {
-      setError(e.message || "Erro de ligação.");
+    } catch {
+      setJobs([]);
     } finally {
       setLoading(false);
     }

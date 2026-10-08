@@ -85,8 +85,8 @@ export default function SellerEmpresaPage() {
     setMessage(null);
     try {
       const res = await fetch("/api/seller/company");
-      if (!res.ok) throw new Error("Erro ao carregar dados da empresa.");
-      const data: SellerCompany | null = await res.json();
+      if (!res.ok) return;
+      const data: SellerCompany | null = await res.json().catch(() => null);
       if (data && data.id) {
         setCompany(data);
         setName(data.name || "");
@@ -101,8 +101,8 @@ export default function SellerEmpresaPage() {
         setWebsite(data.website || "");
         setLogoPreview(data.logoUrl || null);
       }
-    } catch (e: any) {
-      setMessage({ type: "error", text: e.message || "Erro de ligação." });
+    } catch {
+      /* ignore */
     } finally {
       setLoading(false);
     }

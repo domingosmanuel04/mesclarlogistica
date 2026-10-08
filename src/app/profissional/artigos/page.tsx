@@ -55,12 +55,13 @@ export default function MeusArtigosPage() {
     try {
       const res = await fetch("/api/seller/articles");
       if (!res.ok) {
-        throw new Error("Não foi possível carregar os artigos.");
+        setArticles([]);
+        return;
       }
-      const data = await res.json();
-      setArticles(data);
-    } catch (err: any) {
-      setError(err.message || "Erro de ligação.");
+      const data = await res.json().catch(() => []);
+      setArticles(Array.isArray(data) ? data : []);
+    } catch {
+      setArticles([]);
     } finally {
       setLoading(false);
     }

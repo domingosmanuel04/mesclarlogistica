@@ -15,30 +15,43 @@ function slugify(text: string) {
 }
 
 export async function GET() {
-  const authz = await requireRoles(["SELLER", "ADMIN"]);
-  if (isAuthError(authz)) return authz.error;
+  try {
+    const authz = await requireRoles(["SELLER", "ADMIN"]);
+    if (isAuthError(authz)) return authz.error;
 
-  let seller = await getSellerForUser(authz.session.user.id);
-  if (!seller && authz.session.user.role === "ADMIN") {
-    seller = await prisma.seller.findFirst();
-  }
-  if (!seller) {
-    return NextResponse.json({ error: "Perfil de profissional não encontrado." }, { status: 404 });
-  }
+    let seller = null;
+    try {
+      seller = await getSellerForUser(authz.session.user.id);
+      if (!seller && authz.session.user.role === "ADMIN") {
+        seller = await prisma.seller.findFirst();
+      }
+    } catch {
+      seller = null;
+    }
 
-  const articles = await prisma.article.findMany({
-    where: { sellerId: seller.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      seller: {
+    if (!seller) {
+      return NextResponse.json([]);
+    }
+
+    try {
+      const articles = await prisma.article.findMany({
+        where: { sellerId: seller.id },
+        orderBy: { createdAt: "desc" },
         include: {
-          user: { select: { name: true, email: true } },
+          seller: {
+            include: {
+              user: { select: { name: true, email: true } },
+            },
+          },
         },
-      },
-    },
-  });
-
-  return NextResponse.json(articles);
+      });
+      return NextResponse.json(articles);
+    } catch {
+      return NextResponse.json([]);
+    }
+  } catch {
+    return NextResponse.json([]);
+  }
 }
 
 const createArticleSchema = z.object({
