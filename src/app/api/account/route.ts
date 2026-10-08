@@ -33,15 +33,30 @@ export async function GET() {
         photoUrl: user?.author?.photoUrl ?? null,
       });
     }
-  } catch (err) {
-    console.warn("Database offline or uninitialized in GET /api/account, returning session user", err);
+  const { getCachedUserByIdentifier } = await import("@/lib/user-cache");
+  const cached =
+    getCachedUserByIdentifier(authz.session.user.id) ||
+    getCachedUserByIdentifier(authz.session.user.registrationNumber || "") ||
+    getCachedUserByIdentifier(authz.session.user.email || "");
+
+  if (cached) {
+    return NextResponse.json({
+      id: cached.id,
+      name: cached.name,
+      email: cached.email,
+      registrationNumber: cached.registrationNumber,
+      phone: cached.phone ?? null,
+      whatsapp: cached.whatsapp ?? null,
+      role: cached.role,
+      photoUrl: cached.photoUrl ?? null,
+    });
   }
 
   return NextResponse.json({
     id: authz.session.user.id,
     name: authz.session.user.name ?? "Utilizador Mesclar",
     email: authz.session.user.email ?? "utilizador@mesclar.ao",
-    registrationNumber: authz.session.user.registrationNumber ?? "MESC-001",
+    registrationNumber: authz.session.user.registrationNumber ?? "MESC.PR0100",
     role: authz.session.user.role ?? "SELLER",
     photoUrl: null,
   });
@@ -212,14 +227,46 @@ export async function PATCH(request: Request) {
       },
     });
 
+    const { updateCachedUserProfile, getCachedUserByIdentifier } = await import("@/lib/user-cache");
+    const cached =
+      updateCachedUserProfile(userId, {
+        ...(name ? { name } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+        ...(whatsapp !== undefined ? { whatsapp } : {}),
+        ...(photoUrl !== undefined ? { photoUrl } : {}),
+      }) ||
+      getCachedUserByIdentifier(userId) ||
+      getCachedUserByIdentifier(authz.session.user.registrationNumber || "");
+
     return NextResponse.json({
-      ...updatedUser,
-      photoUrl: updatedUser?.author?.photoUrl ?? null,
+      id: userId,
+      name: cached?.name || updatedUser?.name || name || authz.session.user.name,
+      email: cached?.email || updatedUser?.email || authz.session.user.email,
+      registrationNumber: cached?.registrationNumber || updatedUser?.registrationNumber || authz.session.user.registrationNumber,
+      phone: cached?.phone ?? updatedUser?.phone ?? phone ?? null,
+      whatsapp: cached?.whatsapp ?? updatedUser?.whatsapp ?? whatsapp ?? null,
+      role: cached?.role || updatedUser?.role || authz.session.user.role || "SELLER",
+      photoUrl: photoUrl !== undefined ? photoUrl : (cached?.photoUrl ?? updatedUser?.author?.photoUrl ?? null),
       ok: true,
     });
   } catch (err) {
     console.warn("Database offline during PATCH /api/account", err);
+    const { updateCachedUserProfile, getCachedUserByIdentifier } = await import("@/lib/user-cache");
+    const cached =
+      updateCachedUserProfile(userId, {
+        ...(name ? { name } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+        ...(whatsapp !== undefined ? { whatsapp } : {}),
+        ...(photoUrl !== undefined ? { photoUrl } : {}),
+      }) || getCachedUserByIdentifier(userId);
+
     return NextResponse.json({
+      id: userId,
+      name: cached?.name || name || authz.session.user.name,
+      email: cached?.email || authz.session.user.email,
+      registrationNumber: cached?.registrationNumber || authz.session.user.registrationNumber,
+      role: cached?.role || authz.session.user.role || "SELLER",
+      photoUrl: photoUrl !== undefined ? photoUrl : (cached?.photoUrl ?? null),
       ok: true,
       message: "Dados do perfil atualizados com sucesso.",
     });

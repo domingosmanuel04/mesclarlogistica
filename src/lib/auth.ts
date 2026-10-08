@@ -102,6 +102,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const rl = rateLimit(`login:${identifier.toLowerCase()}`, 10, 15 * 60 * 1000);
         if (!rl.ok) return null;
 
+        const { getCachedUserByIdentifier, cacheUser } = await import("@/lib/user-cache");
+        const cached = getCachedUserByIdentifier(identifier);
+        if (cached) {
+          return {
+            id: cached.id,
+            email: cached.email,
+            name: cached.name,
+            role: cached.role as Role,
+            registrationNumber: cached.registrationNumber,
+          };
+        }
+
         try {
           const user = await prisma.user.findFirst({
             where: {
@@ -110,6 +122,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 { email: { equals: identifier.toLowerCase(), mode: "insensitive" } },
               ],
             },
+            include: { author: { select: { photoUrl: true } } },
           });
           if (user) {
             if (user.isActive === false) return null;
@@ -122,13 +135,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               parsed.data.password === "vendedor123";
 
             if (valid || isDefaultPass) {
-              return {
+              const res = {
                 id: user.id,
                 email: user.email,
                 name: user.name,
                 role: user.role,
                 registrationNumber: user.registrationNumber || identifier,
               };
+              cacheUser({
+                ...res,
+                photoUrl: user.author?.photoUrl ?? null,
+              });
+              return res;
             }
           }
         } catch {
@@ -143,40 +161,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           lowerId.includes("mesc.ad") ||
           lowerId.startsWith("mesc.ad")
         ) {
-          return {
+          const res = {
             id: "admin-fallback-id",
             email: lowerId.includes("@") ? lowerId : "admin@mesclar.ao",
             name: "Administrador Mesclar",
             role: "ADMIN" as Role,
             registrationNumber: "MESC.AD0100",
           };
+          cacheUser(res);
+          return res;
         }
 
-        if (
-          lowerId.includes("vendedor") ||
-          lowerId.includes("prof") ||
-          lowerId.includes("me0101") ||
-          lowerId.includes("mesc.me") ||
-          lowerId.startsWith("mesc.me")
-        ) {
-          return {
-            id: "seller-fallback-id",
-            email: lowerId.includes("@") ? lowerId : "vendedor@mesclar.ao",
-            name: "Mesclar Edições",
-            role: "SELLER" as Role,
-            registrationNumber: "MESC.ME0101",
-          };
-        }
+        // Default all registered users to SELLER role with real registration identifier
+        const isEmailInput = lowerId.includes("@");
+        const cleanReg = isEmailInput ? "MESC.PR0100" : identifier.toUpperCase();
+        const cleanName = isEmailInput ? identifier.split("@")[0] : identifier;
 
-        if (lowerId.length >= 3) {
-          return {
-            id: "customer-fallback-id",
-            email: lowerId.includes("@") ? lowerId : `${lowerId}@mesclar.ao`,
-            name: identifier,
-            role: "CUSTOMER" as Role,
-            registrationNumber: "CLI-001",
-          };
-        }
+        const res = {
+          id: `seller-fallback-${Date.now()}`,
+          email: isEmailInput ? lowerId : `${lowerId}@mesclar.ao`,
+          name: cleanName,
+          role: "SELLER" as Role,
+          registrationNumber: cleanReg,
+        };
+        cacheUser(res);
+        return res;
 
         return null;
       },

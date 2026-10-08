@@ -89,6 +89,17 @@ export async function POST(request: Request) {
     const finalId = user?.id || `reg-user-${Date.now()}`;
     const finalReg = user?.registrationNumber || registrationNumber;
 
+    const { cacheUser } = await import("@/lib/user-cache");
+    cacheUser({
+      id: finalId,
+      name: data.name,
+      email,
+      registrationNumber: finalReg,
+      role: "SELLER",
+      phone: data.phone,
+      whatsapp: data.whatsapp,
+    });
+
     // Enviar email com ID de registo para o profissional
     void sendProfessionalRegistrationEmail({
       to: email,
