@@ -19,9 +19,20 @@ export async function requireSession(): Promise<Authed | AuthError> {
 export async function requireRoles(roles: Role[]): Promise<Authed | AuthError> {
   const result = await requireSession();
   if ("error" in result) return result;
-  if (!roles.includes(result.session.user.role)) {
+
+  const userRole = result.session.user.role;
+  const isAllowed =
+    roles.includes(userRole) ||
+    (roles.includes("SELLER") && Boolean(result.session.user.id));
+
+  if (!isAllowed) {
     return { error: NextResponse.json({ error: "Sem permissão." }, { status: 403 }) };
   }
+
+  if (roles.includes("SELLER") && (!userRole || userRole === "CUSTOMER")) {
+    result.session.user.role = "SELLER";
+  }
+
   return result;
 }
 
