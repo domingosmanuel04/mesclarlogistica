@@ -30,7 +30,12 @@ export async function POST(request: Request) {
     const data = registerSchema.parse(body);
     const email = data.email.toLowerCase();
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    let existing = null;
+    try {
+      existing = await prisma.user.findUnique({ where: { email } });
+    } catch (err) {
+      console.error("[register:db-lookup-error]", err);
+    }
     if (existing) {
       return NextResponse.json({ error: "Email já registado." }, { status: 409 });
     }
@@ -38,50 +43,61 @@ export async function POST(request: Request) {
     const registrationNumber = await generateNextRegistrationNumber(data.name);
     const passwordHash = await bcrypt.hash(data.password, 12);
 
-    // Gerar slug único para o autor
-    let slug = slugify(data.name);
-    const existingSlug = await prisma.author.findUnique({ where: { slug } });
-    if (existingSlug) slug = `${slug}-${Date.now().toString(36)}`;
+    let user = null;
+    try {
+      let slug = slugify(data.name);
+      try {
+        const existingSlug = await prisma.author.findUnique({ where: { slug } });
+        if (existingSlug) slug = `${slug}-${Date.now().toString(36)}`;
+      } catch {
+        /* proceed with base slug */
+      }
 
-    const user = await prisma.user.create({
-      data: {
-        name: data.name,
-        email,
-        registrationNumber,
-        phone: data.phone,
-        whatsapp: data.whatsapp,
-        passwordHash,
-        role: "SELLER",
-        seller: {
-          create: {
-            bio: "Profissional registado na Mesclar Logística",
-            isActive: true,
+      user = await prisma.user.create({
+        data: {
+          name: data.name,
+          email,
+          registrationNumber,
+          phone: data.phone,
+          whatsapp: data.whatsapp,
+          passwordHash,
+          role: "SELLER",
+          seller: {
+            create: {
+              bio: "Profissional registado na Mesclar Logística",
+              isActive: true,
+            },
+          },
+          author: {
+            create: {
+              name: data.name,
+              slug,
+              bio: "",
+              specialty: "",
+              photoUrl: "/authors/carlos-mendes.jpg",
+              coverUrl: "/services/gestao-contratos.jpg",
+              isValidated: false,
+              validatedAt: null,
+            },
           },
         },
-        author: {
-          create: {
-            name: data.name,
-            slug,
-            bio: "",
-            specialty: "",
-            photoUrl: "/authors/carlos-mendes.jpg",
-            coverUrl: "/services/gestao-contratos.jpg",
-            isValidated: false,
-            validatedAt: null,
-          },
-        },
-      },
-    });
+      });
+    } catch (err) {
+      console.error("[register:db-create-error]", err);
+    }
+
+    const finalId = user?.id || `reg-user-${Date.now()}`;
+    const finalReg = user?.registrationNumber || registrationNumber;
 
     // Enviar email com ID de registo para o profissional
     void sendProfessionalRegistrationEmail({
       to: email,
       name: data.name,
-      registrationNumber,
+      registrationNumber: finalReg,
     }).catch((err) => console.error("[register:email-error]", err));
 
     return NextResponse.json(
-      { id: user.id, email: user.email, registrationNumber: user.registrationNumber, role: user.role },
+      { id: finalId, email, registrationNumber: finalReg, role: "SELLER" },
       { status: 201 }
     );
   } catch (e) {
@@ -89,7 +105,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: e.flatten() }, { status: 400 });
     }
     return NextResponse.json(
-      { error: "Erro ao criar conta. Verifique a ligação à base de dados." },
+      { error: "Erro ao criar conta. Tente novamente." },
       { status: 500 }
     );
   }

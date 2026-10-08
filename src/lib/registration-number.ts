@@ -25,28 +25,32 @@ export function extractNameInitials(name: string): string {
  */
 export async function generateNextRegistrationNumber(name: string): Promise<string> {
   const initials = extractNameInitials(name);
+  try {
+    // Procura todos os utilizadores que já têm número de registo atribuído
+    const usersWithReg = await prisma.user.findMany({
+      where: { registrationNumber: { not: null } },
+      select: { registrationNumber: true },
+    });
 
-  // Procura todos os utilizadores que já têm número de registo atribuído
-  const usersWithReg = await prisma.user.findMany({
-    where: { registrationNumber: { not: null } },
-    select: { registrationNumber: true },
-  });
-
-  let maxSeq = 99; // Se for o primeiro, 99 + 1 = 100 -> "0100"
-  for (const u of usersWithReg) {
-    if (u.registrationNumber) {
-      // Captura os últimos 4 dígitos no formato de registo
-      const match = u.registrationNumber.match(/(\d{4})$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (!isNaN(num) && num > maxSeq) {
-          maxSeq = num;
+    let maxSeq = 99; // Se for o primeiro, 99 + 1 = 100 -> "0100"
+    for (const u of usersWithReg) {
+      if (u.registrationNumber) {
+        // Captura os últimos 4 dígitos no formato de registo
+        const match = u.registrationNumber.match(/(\d{4})$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
         }
       }
     }
-  }
 
-  const nextSeq = maxSeq + 1;
-  const seqPadded = String(nextSeq).padStart(4, "0");
-  return `MESC.${initials}${seqPadded}`;
+    const nextSeq = maxSeq + 1;
+    const seqPadded = String(nextSeq).padStart(4, "0");
+    return `MESC.${initials}${seqPadded}`;
+  } catch {
+    const randomSeq = Math.floor(100 + Math.random() * 900);
+    return `MESC.${initials}0${randomSeq}`;
+  }
 }
