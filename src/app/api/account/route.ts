@@ -207,9 +207,9 @@ export async function PATCH(request: Request) {
             userId,
             name: updatedName,
             slug,
-            photoUrl: photoUrl ?? "/authors/carlos-mendes.jpg",
-            isValidated: false,
-            validatedAt: null,
+            photoUrl: photoUrl ?? "/authors/default.jpg",
+            isValidated: true,
+            validatedAt: new Date(),
           },
         });
       }

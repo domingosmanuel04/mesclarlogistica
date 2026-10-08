@@ -40,20 +40,17 @@ export async function getSellerForUser(userId: string) {
   try {
     let seller = await prisma.seller.findUnique({ where: { userId } });
     if (!seller) {
-      seller = await prisma.seller.findFirst();
-    }
-    if (!seller) {
-      return {
-        id: `seller-${userId}`,
-        userId,
-        bio: "Profissional registado na Mesclar Logística",
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any;
+      seller = await prisma.seller.create({
+        data: {
+          userId,
+          bio: "Profissional registado na Mesclar Logística",
+          isActive: true,
+        },
+      });
     }
     return seller;
-  } catch {
+  } catch (err) {
+    console.error("Error in getSellerForUser:", err);
     return {
       id: `seller-${userId}`,
       userId,

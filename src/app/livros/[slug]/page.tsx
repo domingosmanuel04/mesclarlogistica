@@ -7,6 +7,7 @@ import { formatPrice, productTypeLabel } from "@/lib/utils";
 import { BookDetailActions } from "@/components/books/book-detail-actions";
 import { BookGrid } from "@/components/books/book-grid";
 import { BookReviews } from "@/components/books/book-reviews";
+import { SafeHtml } from "@/lib/html-utils";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -72,7 +73,7 @@ export default async function BookDetailPage({ params }: PageProps) {
             <span className="text-mesclar-muted">({book.ratingCount} avaliações)</span>
             <span className="text-mesclar-muted">· {productTypeLabel(book.productType)}</span>
           </div>
-          <p className="mt-6 leading-relaxed text-mesclar-gray">{book.description}</p>
+          <SafeHtml html={book.description} className="mt-6 leading-relaxed text-mesclar-gray prose max-w-none" />
           {book.summary && (
             <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-mesclar-cream/50 p-4 text-sm text-mesclar-muted">
               {book.summary}

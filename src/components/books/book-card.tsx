@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Star, ArrowUpRight, Eye, ShoppingCart, Download } from "lucide-react";
 import type { MockBook } from "@/types";
 import { formatPrice, cn } from "@/lib/utils";
+import { stripHtml } from "@/lib/html-utils";
 import { Button } from "@/components/ui/button";
 import { productTypeLabel } from "@/contexts/cart-context";
 import { useCheckout } from "@/contexts/checkout-context";
@@ -86,7 +87,7 @@ export function BookCard({ book, className, downloadOnly }: BookCardProps) {
         </Link>
         <p className="mt-1 text-sm text-mesclar-muted">{book.authorName}</p>
         <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mesclar-muted/90">
-          {book.description}
+          {stripHtml(book.description)}
         </p>
 
         <div className="mt-3 flex items-center gap-2 text-sm">

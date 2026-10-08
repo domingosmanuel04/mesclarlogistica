@@ -18,6 +18,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { Button } from "@/components/ui/button";
+import { stripHtml } from "@/lib/html-utils";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -147,7 +148,7 @@ export default async function ArtigoSinglePage({ params }: Props) {
 
           {article.excerpt && (
             <p className="text-lg leading-relaxed text-mesclar-muted font-normal">
-              {article.excerpt}
+              {stripHtml(article.excerpt)}
             </p>
           )}
 

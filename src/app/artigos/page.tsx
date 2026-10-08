@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
+import { stripHtml } from "@/lib/html-utils";
 
 export const metadata: Metadata = {
   title: "Artigos e Publicações Especializadas | Mesclar Logística",
@@ -223,7 +224,7 @@ export default async function ArtigosPage({ searchParams }: Props) {
                     </Link>
 
                     <p className="mt-2 text-xs leading-relaxed text-mesclar-muted line-clamp-3">
-                      {article.excerpt || "Leia o artigo completo para entender as abordagens técnicas e frameworks operacionais..."}
+                      {stripHtml(article.excerpt || article.content) || "Leia o artigo completo para entender as abordagens técnicas e frameworks operacionais..."}
                     </p>
 
                     {/* Autor e Botão de Leitura */}
