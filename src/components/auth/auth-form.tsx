@@ -200,23 +200,29 @@ export function LoginForm() {
     setLoading(true);
     setError("");
     const fd = new FormData(e.currentTarget);
-    const res = await login(fd.get("email") as string, fd.get("password") as string);
+    const identifier = ((fd.get("email") as string) || "").trim();
+    const password = ((fd.get("password") as string) || "").trim();
+
+    const res = await login(identifier, password);
     setLoading(false);
     if (!res.ok) {
-      setError(res.error ?? "Erro ao entrar.");
+      setError(res.error ?? "ID de registo ou palavra-passe incorrectos.");
       return;
     }
+
     const params = new URLSearchParams(window.location.search);
-    const redirect = params.get("redirect");
-    if (redirect) {
-      router.push(redirect);
-      router.refresh();
+    const redirect = params.get("redirect") || params.get("callbackUrl");
+    if (redirect && !redirect.includes("/entrar")) {
+      window.location.href = redirect;
       return;
     }
-    const me = await fetch("/api/account").then((r) => r.json()).catch(() => null);
-    if (me?.role === "ADMIN") router.push("/admin");
-    else router.push("/profissional");
-    router.refresh();
+
+    const lower = identifier.toLowerCase();
+    if (lower.includes("admin")) {
+      window.location.href = "/admin";
+    } else {
+      window.location.href = "/profissional";
+    }
   }
 
   return (
@@ -239,7 +245,7 @@ export function LoginForm() {
           </p>
         )}
         {error && (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 font-medium">
             {error}
           </p>
         )}
@@ -327,8 +333,7 @@ export function RegisterForm() {
         name: userName,
       });
     } else {
-      router.push("/profissional");
-      router.refresh();
+      window.location.href = "/profissional";
     }
   }
 
@@ -399,8 +404,7 @@ export function RegisterForm() {
                 size="lg"
                 className="w-full font-bold shadow-lg shadow-mesclar-gold/25"
                 onClick={() => {
-                  router.push("/profissional");
-                  router.refresh();
+                  window.location.href = "/profissional";
                 }}
               >
                 Aceder ao Ambiente de Trabalho

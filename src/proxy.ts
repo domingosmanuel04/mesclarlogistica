@@ -30,10 +30,44 @@ export async function proxy(request: NextRequest) {
     pathname === "/conta" || pathname.startsWith("/conta/");
 
   if (isAdminRoute || isProfessionalRoute || isAccountRoute) {
-    const token = await getToken({
-      req: request,
-      secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "mesclar-logistica-secret-key-prod-2026-minimum-32-bytes",
-    });
+    const secret =
+      process.env.AUTH_SECRET ||
+      process.env.NEXTAUTH_SECRET ||
+      "mesclar-logistica-secret-key-prod-2026-minimum-32-bytes";
+
+    let token = await getToken({ req: request, secret });
+
+    if (!token) {
+      token = await getToken({
+        req: request,
+        secret,
+        cookieName: "authjs.session-token",
+      });
+    }
+
+    if (!token) {
+      token = await getToken({
+        req: request,
+        secret,
+        cookieName: "__Secure-authjs.session-token",
+      });
+    }
+
+    if (!token) {
+      token = await getToken({
+        req: request,
+        secret,
+        cookieName: "next-auth.session-token",
+      });
+    }
+
+    if (!token) {
+      token = await getToken({
+        req: request,
+        secret,
+        cookieName: "__Secure-next-auth.session-token",
+      });
+    }
 
     if (!token) {
       const loginUrl = new URL("/entrar", request.url);
