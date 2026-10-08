@@ -18,6 +18,8 @@ else
 fi
 
 export PATH="$(dirname "$NODE_BIN"):$PATH"
+NPM_BIN="$(command -v npm || echo "npm")"
+NPX_BIN="$(command -v npx || echo "npx")"
 
 ROOT_DIR="$(pwd)"
 if [ -d "/mnt/home103/mesclarl/mesclar" ]; then
@@ -74,17 +76,25 @@ set +a
 
 echo "=== Using Node Binary: $NODE_BIN ($($NODE_BIN -v 2>/dev/null || true)) ==="
 
-echo "=== 2. Installing all dependencies (including Tailwind & build packages) ==="
-NODE_ENV=development "$NODE_BIN" $(command -v npm || echo "npm") ci --include=dev || NODE_ENV=development "$NODE_BIN" $(command -v npm || echo "npm") install --include=dev
+echo "=== 2. Installing all dependencies (forcing PostCSS & Tailwind) ==="
+"$NODE_BIN" "$NPM_BIN" config set omit "" 2>/dev/null || true
+"$NODE_BIN" "$NPM_BIN" config set production false 2>/dev/null || true
+NODE_ENV=development "$NODE_BIN" "$NPM_BIN" install --include=dev --production=false
+
+# Guarantee @tailwindcss/postcss is explicitly installed
+if [ ! -d "$ROOT_DIR/node_modules/@tailwindcss/postcss" ]; then
+  echo "=== Explicitly installing @tailwindcss/postcss ==="
+  NODE_ENV=development "$NODE_BIN" "$NPM_BIN" install @tailwindcss/postcss tailwindcss postcss --production=false --no-save
+fi
 
 echo "=== 3. Generating Prisma client & syncing database ==="
-"$NODE_BIN" $(command -v npx || echo "npx") prisma generate || true
-"$NODE_BIN" $(command -v npx || echo "npx") prisma db push --accept-data-loss || true
+"$NODE_BIN" "$NPX_BIN" prisma generate || true
+"$NODE_BIN" "$NPX_BIN" prisma db push --accept-data-loss || true
 
 echo "=== 4. Building Next.js application ==="
 export NODE_ENV=production
 export NODE_OPTIONS="--max-old-space-size=2048"
-"$NODE_BIN" $(command -v npm || echo "npm") run build
+"$NODE_BIN" "$NPM_BIN" run build
 
 echo "=== 5. Re-syncing web root proxy files (.htaccess & index.php) ==="
 for PUBLIC_DIR in "$HOME/public_html" "/home/mesclarl/public_html" "/mnt/home103/mesclarl/public_html" "$ROOT_DIR/public"; do
