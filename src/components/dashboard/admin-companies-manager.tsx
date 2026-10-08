@@ -122,8 +122,10 @@ export function AdminCompaniesManager() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/companies");
-      if (!res.ok) throw new Error("Erro ao carregar empresas.");
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao carregar empresas.");
+      }
       setCompanies(Array.isArray(data) ? data : []);
     } catch (e: any) {
       showMessage(e.message || "Erro de ligação.", "error");

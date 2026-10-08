@@ -11,117 +11,124 @@ export async function GET(request: Request) {
   const authz = await requireRoles(["ADMIN"]);
   if (isAuthError(authz)) return authz.error;
 
-  const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q")?.toLowerCase();
+  try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.toLowerCase();
 
-  const sellers = await prisma.seller.findMany({
-    where: q
-      ? {
-          OR: [
-            { user: { name: { contains: q, mode: "insensitive" } } },
-            { user: { email: { contains: q, mode: "insensitive" } } },
-            { user: { phone: { contains: q, mode: "insensitive" } } },
-            { user: { whatsapp: { contains: q, mode: "insensitive" } } },
-          ],
-        }
-      : undefined,
-    orderBy: { createdAt: "desc" },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          whatsapp: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-          orders: {
-            take: 3,
-            orderBy: { createdAt: "desc" },
-            select: {
-              id: true,
-              orderNumber: true,
-              status: true,
-              total: true,
-              createdAt: true,
-              payment: {
-                select: {
-                  id: true,
-                  approvedAt: true,
+    const sellers = await prisma.seller.findMany({
+      where: q
+        ? {
+            OR: [
+              { user: { name: { contains: q, mode: "insensitive" } } },
+              { user: { email: { contains: q, mode: "insensitive" } } },
+              { user: { phone: { contains: q, mode: "insensitive" } } },
+              { user: { whatsapp: { contains: q, mode: "insensitive" } } },
+            ],
+          }
+        : undefined,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            whatsapp: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+            orders: {
+              take: 3,
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                orderNumber: true,
+                status: true,
+                total: true,
+                createdAt: true,
+                payment: {
+                  select: {
+                    id: true,
+                    approvedAt: true,
+                  },
                 },
               },
             },
-          },
-          _count: {
-            select: {
-              orders: true,
-              downloads: true,
+            _count: {
+              select: {
+                orders: true,
+                downloads: true,
+              },
             },
           },
         },
-      },
-      _count: {
-        select: {
-          books: true,
-          orders: true,
-          trainings: true,
-          articles: true,
+        _count: {
+          select: {
+            books: true,
+            orders: true,
+            trainings: true,
+            articles: true,
+          },
+        },
+        books: {
+          take: 5,
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            status: true,
+            priceEbook: true,
+            pricePhysical: true,
+            productType: true,
+          },
+        },
+        trainings: {
+          take: 5,
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            title: true,
+            active: true,
+          },
         },
       },
-      books: {
-        take: 5,
-        orderBy: { updatedAt: "desc" },
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          status: true,
-          priceEbook: true,
-          pricePhysical: true,
-          productType: true,
-        },
-      },
-      trainings: {
-        take: 5,
-        orderBy: { updatedAt: "desc" },
-        select: {
-          id: true,
-          title: true,
-          active: true,
-        },
-      },
-    },
-    take: 200,
-  });
+      take: 200,
+    });
 
-  // Anexa o perfil de autor correspondente
-  const userIds = sellers.map((s) => s.userId);
-  const authors = await prisma.author.findMany({
-    where: { userId: { in: userIds } },
-    select: {
-      id: true,
-      userId: true,
-      name: true,
-      slug: true,
-      specialty: true,
-      bio: true,
-      photoUrl: true,
-      isValidated: true,
-      validatedAt: true,
-    },
-  });
+    // Anexa o perfil de autor correspondente
+    const userIds = sellers.map((s) => s.userId).filter((id): id is string => Boolean(id));
+    const authors = userIds.length > 0
+      ? await prisma.author.findMany({
+          where: { userId: { in: userIds } },
+          select: {
+            id: true,
+            userId: true,
+            name: true,
+            slug: true,
+            specialty: true,
+            bio: true,
+            photoUrl: true,
+            isValidated: true,
+            validatedAt: true,
+          },
+        })
+      : [];
 
-  const authorMap = new Map(authors.map((a) => [a.userId, a]));
+    const authorMap = new Map(authors.map((a) => [a.userId, a]));
 
-  const result = sellers.map((seller) => ({
-    ...seller,
-    author: seller.userId ? authorMap.get(seller.userId) || null : null,
-  }));
+    const result = sellers.map((seller) => ({
+      ...seller,
+      author: seller.userId ? authorMap.get(seller.userId) || null : null,
+    }));
 
-  return NextResponse.json(result);
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("[admin-sellers-api-get] Error:", error);
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(request: Request) {

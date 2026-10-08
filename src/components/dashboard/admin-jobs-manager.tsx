@@ -153,8 +153,10 @@ export function AdminJobsManager() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/jobs");
-      if (!res.ok) throw new Error("Erro ao carregar vagas.");
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao carregar vagas.");
+      }
       setJobs(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
       const err = e as Error;

@@ -177,8 +177,10 @@ export function AdminSellersManager() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/sellers");
-      if (!res.ok) throw new Error("Erro ao carregar lista de profissionais.");
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao carregar lista de profissionais.");
+      }
       setSellers(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
       const err = e as Error;

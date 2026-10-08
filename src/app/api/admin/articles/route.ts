@@ -8,54 +8,59 @@ export async function GET(request: Request) {
   const authz = await requireRoles(["ADMIN"]);
   if (isAuthError(authz)) return authz.error;
 
-  const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q")?.toLowerCase();
-  const status = searchParams.get("status");
+  try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.toLowerCase();
+    const status = searchParams.get("status");
 
-  const where: any = {};
+    const where: any = {};
 
-  if (status && status !== "ALL") {
-    where.status = status;
-  }
+    if (status && status !== "ALL") {
+      where.status = status;
+    }
 
-  if (q) {
-    where.OR = [
-      { title: { contains: q, mode: "insensitive" } },
-      { excerpt: { contains: q, mode: "insensitive" } },
-      { category: { contains: q, mode: "insensitive" } },
-      { tags: { contains: q, mode: "insensitive" } },
-      { seller: { user: { name: { contains: q, mode: "insensitive" } } } },
-    ];
-  }
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: "insensitive" } },
+        { excerpt: { contains: q, mode: "insensitive" } },
+        { category: { contains: q, mode: "insensitive" } },
+        { tags: { contains: q, mode: "insensitive" } },
+        { seller: { user: { name: { contains: q, mode: "insensitive" } } } },
+      ];
+    }
 
-  const articles = await prisma.article.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: {
-      seller: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              author: {
-                select: {
-                  id: true,
-                  slug: true,
-                  photoUrl: true,
-                  specialty: true,
+    const articles = await prisma.article.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        seller: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                author: {
+                  select: {
+                    id: true,
+                    slug: true,
+                    photoUrl: true,
+                    specialty: true,
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-    take: 250,
-  });
+      take: 250,
+    });
 
-  return NextResponse.json(articles);
+    return NextResponse.json(articles);
+  } catch (error) {
+    console.error("[admin-articles-api-get] Error:", error);
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(request: Request) {

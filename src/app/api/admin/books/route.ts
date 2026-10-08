@@ -6,68 +6,73 @@ export async function GET(request: Request) {
   const authz = await requireRoles(["ADMIN"]);
   if (isAuthError(authz)) return authz.error;
 
-  const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q")?.toLowerCase();
-  const status = searchParams.get("status");
+  try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.toLowerCase();
+    const status = searchParams.get("status");
 
-  const where: any = {};
+    const where: any = {};
 
-  if (status && status !== "ALL") {
-    where.status = status;
-  }
+    if (status && status !== "ALL") {
+      where.status = status;
+    }
 
-  if (q) {
-    where.OR = [
-      { title: { contains: q, mode: "insensitive" } },
-      { author: { name: { contains: q, mode: "insensitive" } } },
-      { category: { name: { contains: q, mode: "insensitive" } } },
-      { isbn: { contains: q, mode: "insensitive" } },
-      { seller: { user: { name: { contains: q, mode: "insensitive" } } } },
-    ];
-  }
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: "insensitive" } },
+        { author: { name: { contains: q, mode: "insensitive" } } },
+        { category: { name: { contains: q, mode: "insensitive" } } },
+        { isbn: { contains: q, mode: "insensitive" } },
+        { seller: { user: { name: { contains: q, mode: "insensitive" } } } },
+      ];
+    }
 
-  const books = await prisma.book.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    include: {
-      author: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          photoUrl: true,
-          specialty: true,
+    const books = await prisma.book.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            photoUrl: true,
+            specialty: true,
+          },
         },
-      },
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
         },
-      },
-      seller: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+        seller: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
         },
-      },
-      _count: {
-        select: {
-          orderItems: true,
-          reviews: true,
+        _count: {
+          select: {
+            orderItems: true,
+            reviews: true,
+          },
         },
       },
-    },
-    take: 250,
-  });
+      take: 250,
+    });
 
-  return NextResponse.json(books);
+    return NextResponse.json(books);
+  } catch (error) {
+    console.error("[admin-books-api-get] Error:", error);
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(request: Request) {

@@ -155,8 +155,10 @@ export function AdminUsersManager() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/users");
-      if (!res.ok) throw new Error("Erro ao carregar lista de utilizadores.");
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao carregar lista de utilizadores.");
+      }
       setUsers(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
       const err = e as Error;

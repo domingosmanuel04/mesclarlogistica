@@ -7,58 +7,63 @@ export async function GET(request: Request) {
   const authz = await requireRoles(["ADMIN"]);
   if (isAuthError(authz)) return authz.error;
 
-  const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q")?.toLowerCase();
-  const status = searchParams.get("status");
-  const approvalStatus = searchParams.get("approvalStatus");
-  const linkType = searchParams.get("linkType");
+  try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.toLowerCase();
+    const status = searchParams.get("status");
+    const approvalStatus = searchParams.get("approvalStatus");
+    const linkType = searchParams.get("linkType");
 
-  const where: any = {};
+    const where: any = {};
 
-  if (status === "ACTIVE") {
-    where.active = true;
-  } else if (status === "INACTIVE") {
-    where.active = false;
-  }
+    if (status === "ACTIVE") {
+      where.active = true;
+    } else if (status === "INACTIVE") {
+      where.active = false;
+    }
 
-  if (approvalStatus && ["PENDING", "APPROVED", "REJECTED", "CLOSED"].includes(approvalStatus)) {
-    where.status = approvalStatus;
-  }
+    if (approvalStatus && ["PENDING", "APPROVED", "REJECTED", "CLOSED"].includes(approvalStatus)) {
+      where.status = approvalStatus;
+    }
 
-  if (linkType && ["WHATSAPP", "LINKEDIN", "WEBSITE", "BANNER"].includes(linkType)) {
-    where.linkType = linkType;
-  }
+    if (linkType && ["WHATSAPP", "LINKEDIN", "WEBSITE", "BANNER"].includes(linkType)) {
+      where.linkType = linkType;
+    }
 
-  if (q) {
-    where.OR = [
-      { title: { contains: q, mode: "insensitive" } },
-      { company: { contains: q, mode: "insensitive" } },
-      { location: { contains: q, mode: "insensitive" } },
-      { description: { contains: q, mode: "insensitive" } },
-      { tags: { contains: q, mode: "insensitive" } },
-    ];
-  }
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: "insensitive" } },
+        { company: { contains: q, mode: "insensitive" } },
+        { location: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+        { tags: { contains: q, mode: "insensitive" } },
+      ];
+    }
 
-  const jobs = await prisma.job.findMany({
-    where,
-    include: {
-      seller: {
-        select: {
-          id: true,
-          user: {
-            select: {
-              name: true,
-              email: true,
+    const jobs = await prisma.job.findMany({
+      where,
+      include: {
+        seller: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                name: true,
+                email: true,
+              },
             },
           },
         },
       },
-    },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    take: 250,
-  });
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      take: 250,
+    });
 
-  return NextResponse.json(jobs);
+    return NextResponse.json(jobs);
+  } catch (error) {
+    console.error("[admin-jobs-api-get] Error:", error);
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(request: Request) {

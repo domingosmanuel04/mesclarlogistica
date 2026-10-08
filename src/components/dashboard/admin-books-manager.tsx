@@ -141,8 +141,10 @@ export function AdminBooksManager() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/books");
-      if (!res.ok) throw new Error("Erro ao carregar catálogo de livros.");
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao carregar catálogo de livros.");
+      }
       setBooks(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
       const err = e as Error;

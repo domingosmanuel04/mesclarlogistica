@@ -135,8 +135,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await update();
   }, [update]);
 
-  const logout = useCallback(() => {
-    void signOut({ callbackUrl: "/" });
+  const logout = useCallback(async () => {
+    try {
+      await signOut({ redirect: false });
+    } catch (err) {
+      console.warn("[logout:signOut]", err);
+    }
+    window.location.href = "/entrar";
   }, []);
 
   const value = useMemo(

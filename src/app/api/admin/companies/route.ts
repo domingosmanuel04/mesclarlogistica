@@ -7,53 +7,58 @@ export async function GET(request: Request) {
   const authz = await requireRoles(["ADMIN"]);
   if (isAuthError(authz)) return authz.error;
 
-  const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q")?.toLowerCase();
-  const status = searchParams.get("status");
-  const certified = searchParams.get("certified");
+  try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.toLowerCase();
+    const status = searchParams.get("status");
+    const certified = searchParams.get("certified");
 
-  const where: any = {};
+    const where: any = {};
 
-  if (status && ["PENDING", "APPROVED", "REJECTED"].includes(status)) {
-    where.status = status;
-  }
+    if (status && ["PENDING", "APPROVED", "REJECTED"].includes(status)) {
+      where.status = status;
+    }
 
-  if (certified === "true") {
-    where.certified = true;
-  } else if (certified === "false") {
-    where.certified = false;
-  }
+    if (certified === "true") {
+      where.certified = true;
+    } else if (certified === "false") {
+      where.certified = false;
+    }
 
-  if (q) {
-    where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { category: { contains: q, mode: "insensitive" } },
-      { location: { contains: q, mode: "insensitive" } },
-      { services: { contains: q, mode: "insensitive" } },
-      { description: { contains: q, mode: "insensitive" } },
-    ];
-  }
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { category: { contains: q, mode: "insensitive" } },
+        { location: { contains: q, mode: "insensitive" } },
+        { services: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ];
+    }
 
-  const companies = await prisma.company.findMany({
-    where,
-    include: {
-      seller: {
-        select: {
-          id: true,
-          user: {
-            select: {
-              name: true,
-              email: true,
-              phone: true,
+    const companies = await prisma.company.findMany({
+      where,
+      include: {
+        seller: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                name: true,
+                email: true,
+                phone: true,
+              },
             },
           },
         },
       },
-    },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-  });
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    });
 
-  return NextResponse.json(companies);
+    return NextResponse.json(companies);
+  } catch (error) {
+    console.error("[admin-companies-api-get] Error:", error);
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(request: Request) {

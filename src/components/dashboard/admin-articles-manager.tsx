@@ -135,8 +135,10 @@ export function AdminArticlesManager() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/articles");
-      if (!res.ok) throw new Error("Erro ao carregar artigos.");
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao carregar artigos.");
+      }
       setArticles(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
       const err = e as Error;

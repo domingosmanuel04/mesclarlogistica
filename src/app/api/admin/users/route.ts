@@ -11,74 +11,79 @@ export async function GET(request: Request) {
   const authz = await requireRoles(["ADMIN"]);
   if (isAuthError(authz)) return authz.error;
 
-  const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q")?.toLowerCase();
+  try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.toLowerCase();
 
-  const users = await prisma.user.findMany({
-    where: q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { email: { contains: q, mode: "insensitive" } },
-            { phone: { contains: q, mode: "insensitive" } },
-          ],
-        }
-      : undefined,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      isActive: true,
-      phone: true,
-      whatsapp: true,
-      createdAt: true,
-      updatedAt: true,
-      seller: {
-        select: {
-          id: true,
-          isActive: true,
-          _count: { select: { books: true, orders: true } },
+    const users = await prisma.user.findMany({
+      where: q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { email: { contains: q, mode: "insensitive" } },
+              { phone: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : undefined,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        phone: true,
+        whatsapp: true,
+        createdAt: true,
+        updatedAt: true,
+        seller: {
+          select: {
+            id: true,
+            isActive: true,
+            _count: { select: { books: true, orders: true } },
+          },
         },
-      },
-      author: {
-        select: {
-          id: true,
-          slug: true,
-          photoUrl: true,
-          isValidated: true,
-          specialty: true,
+        author: {
+          select: {
+            id: true,
+            slug: true,
+            photoUrl: true,
+            isValidated: true,
+            specialty: true,
+          },
         },
-      },
-      _count: {
-        select: {
-          orders: true,
-          downloads: true,
+        _count: {
+          select: {
+            orders: true,
+            downloads: true,
+          },
         },
-      },
-      orders: {
-        take: 3,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          orderNumber: true,
-          status: true,
-          total: true,
-          createdAt: true,
-          payment: {
-            select: {
-              id: true,
-              approvedAt: true,
+        orders: {
+          take: 3,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            total: true,
+            createdAt: true,
+            payment: {
+              select: {
+                id: true,
+                approvedAt: true,
+              },
             },
           },
         },
       },
-    },
-    take: 250,
-  });
+      take: 250,
+    });
 
-  return NextResponse.json(users);
+    return NextResponse.json(users);
+  } catch (error) {
+    console.error("[admin-users-api-get] Error:", error);
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(request: Request) {
