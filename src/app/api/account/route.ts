@@ -33,6 +33,10 @@ export async function GET() {
         photoUrl: user?.author?.photoUrl ?? null,
       });
     }
+  } catch (err) {
+    console.warn("Database offline during GET /api/account", err);
+  }
+
   const { getCachedUserByIdentifier } = await import("@/lib/user-cache");
   const cached =
     getCachedUserByIdentifier(authz.session.user.id) ||
@@ -76,6 +80,7 @@ export async function PATCH(request: Request) {
   let newPassword: string | undefined;
   let photoFile: File | null = null;
   let removePhoto = false;
+  let photoUrl: string | undefined | null;
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData();
@@ -157,7 +162,6 @@ export async function PATCH(request: Request) {
 
     // 3. Photo & Author profile handling
     let author = await prisma.author.findFirst({ where: { userId } });
-    let photoUrl: string | undefined | null;
 
     if (photoFile) {
       if (!photoFile.type.startsWith("image/")) {

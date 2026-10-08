@@ -7,6 +7,13 @@ export async function POST(request: Request) {
   if (isAuthError(authz)) return authz.error;
 
   try {
+    const contentType = request.headers.get("content-type") || "";
+    if (!contentType.includes("multipart/form-data") && !contentType.includes("application/x-www-form-urlencoded")) {
+      return NextResponse.json(
+        { error: "Formato de envio inválido. Envie um formulário multipart/form-data com o ficheiro." },
+        { status: 400 }
+      );
+    }
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const kind = ((formData.get("kind") as string) || "articles") as StorageKind;

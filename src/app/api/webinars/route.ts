@@ -66,14 +66,39 @@ export async function POST(request: Request) {
       );
     }
 
-    const form = await request.formData();
-    const title = String(form.get("title") || "").trim();
-    const description = String(form.get("description") || "").trim();
-    const linkUrl = String(form.get("linkUrl") || "").trim();
-    const speaker = String(form.get("speaker") || "").trim() || undefined;
-    const eventDateStr = form.get("eventDate") ? String(form.get("eventDate")) : undefined;
-    const sortOrder = Number(form.get("sortOrder") || 0) || 0;
-    const active = form.get("active") !== "false";
+    const contentType = request.headers.get("content-type") || "";
+    let title = "";
+    let description = "";
+    let linkUrl = "";
+    let speaker: string | undefined;
+    let eventDateStr: string | undefined;
+    let sortOrder = 0;
+    let active = true;
+    let bannerFile: File | null = null;
+    let bannerUrlFromJson: string | undefined;
+
+    if (contentType.includes("multipart/form-data") || contentType.includes("application/x-www-form-urlencoded")) {
+      const form = await request.formData();
+      title = String(form.get("title") || "").trim();
+      description = String(form.get("description") || "").trim();
+      linkUrl = String(form.get("linkUrl") || "").trim();
+      speaker = String(form.get("speaker") || "").trim() || undefined;
+      eventDateStr = form.get("eventDate") ? String(form.get("eventDate")) : undefined;
+      sortOrder = Number(form.get("sortOrder") || 0) || 0;
+      active = form.get("active") !== "false";
+      const b = form.get("banner");
+      if (b instanceof File && b.size > 0) bannerFile = b;
+    } else {
+      const body = await request.json().catch(() => ({}));
+      title = String(body.title || "").trim();
+      description = String(body.description || "").trim();
+      linkUrl = String(body.linkUrl || "").trim();
+      speaker = body.speaker ? String(body.speaker).trim() : undefined;
+      eventDateStr = body.eventDate ? String(body.eventDate) : undefined;
+      sortOrder = Number(body.sortOrder || 0) || 0;
+      active = body.active !== false;
+      if (typeof body.bannerUrl === "string") bannerUrlFromJson = body.bannerUrl;
+    }
 
     const parsed = z
       .object({
@@ -91,21 +116,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
-    const banner = form.get("banner");
-    if (!(banner instanceof File) || banner.size === 0) {
-      return NextResponse.json({ error: "Envie a imagem do banner do webinar." }, { status: 400 });
-    }
-    if (!banner.type.startsWith("image/")) {
-      return NextResponse.json({ error: "O banner deve ser uma imagem válida." }, { status: 400 });
-    }
-    if (banner.size > MAX_BANNER_MB * 1024 * 1024) {
-      return NextResponse.json(
-        { error: `Banner no máximo ${MAX_BANNER_MB} MB.` },
-        { status: 400 }
-      );
+    let bannerUrl = bannerUrlFromJson;
+    if (bannerFile) {
+      if (!bannerFile.type.startsWith("image/")) {
+        return NextResponse.json({ error: "O banner deve ser uma imagem válida." }, { status: 400 });
+      }
+      if (bannerFile.size > MAX_BANNER_MB * 1024 * 1024) {
+        return NextResponse.json(
+          { error: `Banner no máximo ${MAX_BANNER_MB} MB.` },
+          { status: 400 }
+        );
+      }
+      const saved = await saveUpload("webinars", bannerFile);
+      bannerUrl = `/api/uploads/${saved.relativePath}`;
     }
 
-    const saved = await saveUpload("webinars", banner);
+    if (!bannerUrl) {
+      return NextResponse.json({ error: "Envie a imagem do banner do webinar." }, { status: 400 });
+    }
     const eventDate = eventDateStr ? new Date(eventDateStr) : null;
 
     const row = await prisma.webinar.create({
@@ -116,7 +144,7 @@ export async function POST(request: Request) {
         linkUrl: parsed.data.linkUrl,
         speaker: parsed.data.speaker,
         eventDate: eventDate && !isNaN(eventDate.getTime()) ? eventDate : null,
-        bannerUrl: `/api/uploads/${saved.relativePath}`,
+        bannerUrl: bannerUrl,
         sortOrder: parsed.data.sortOrder,
         active: parsed.data.active,
       },
