@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
 set -e
 
-export NVM_DIR="$HOME/.nvm"
-if [ -s "$NVM_DIR/nvm.sh" ]; then
+# Select best available Node binary (cPanel ea-nodejs20 / ea-nodejs18 / system nvm)
+NODE_BIN=""
+if [ -x "/opt/cpanel/ea-nodejs20/bin/node" ]; then
+  NODE_BIN="/opt/cpanel/ea-nodejs20/bin/node"
+  export PATH="/opt/cpanel/ea-nodejs20/bin:$PATH"
+elif [ -x "/opt/cpanel/ea-nodejs18/bin/node" ]; then
+  NODE_BIN="/opt/cpanel/ea-nodejs18/bin/node"
+  export PATH="/opt/cpanel/ea-nodejs18/bin:$PATH"
+elif [ -s "$HOME/.nvm/nvm.sh" ]; then
+  export NVM_DIR="$HOME/.nvm"
   \. "$NVM_DIR/nvm.sh"
+  NODE_BIN="$(command -v node)"
+else
+  NODE_BIN="$(command -v node || echo "node")"
 fi
 
-# Add common Node / PM2 / cPanel binary locations to PATH
-export PATH="/opt/cpanel/ea-nodejs20/bin:/opt/cpanel/ea-nodejs18/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$HOME/.bin:$HOME/bin:$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
+export PATH="$(dirname "$NODE_BIN"):$PATH"
 
 ROOT_DIR="$(pwd)"
 if [ -d "/mnt/home103/mesclarl/mesclar" ]; then
@@ -62,17 +72,19 @@ set -a
 export PORT=3000
 set +a
 
+echo "=== Using Node Binary: $NODE_BIN ($($NODE_BIN -v 2>/dev/null || true)) ==="
+
 echo "=== 2. Installing all dependencies (including Tailwind & build packages) ==="
-NODE_ENV=development npm ci --include=dev || NODE_ENV=development npm install --include=dev
+NODE_ENV=development "$NODE_BIN" $(command -v npm || echo "npm") ci --include=dev || NODE_ENV=development "$NODE_BIN" $(command -v npm || echo "npm") install --include=dev
 
 echo "=== 3. Generating Prisma client & syncing database ==="
-npx prisma generate || true
-npx prisma db push --accept-data-loss || true
+"$NODE_BIN" $(command -v npx || echo "npx") prisma generate || true
+"$NODE_BIN" $(command -v npx || echo "npx") prisma db push --accept-data-loss || true
 
 echo "=== 4. Building Next.js application ==="
 export NODE_ENV=production
 export NODE_OPTIONS="--max-old-space-size=2048"
-npm run build
+"$NODE_BIN" $(command -v npm || echo "npm") run build
 
 echo "=== 5. Re-syncing web root proxy files (.htaccess & index.php) ==="
 for PUBLIC_DIR in "$HOME/public_html" "/home/mesclarl/public_html" "/mnt/home103/mesclarl/public_html" "$ROOT_DIR/public"; do
@@ -96,12 +108,15 @@ if command -v pm2 &> /dev/null; then
   pm2 save || true
   pm2 status || true
 else
-  echo "=== Running server.js in background ==="
+  echo "=== Running server.js with $NODE_BIN in background ==="
   pkill -9 -f "server.js" 2>/dev/null || true
   pkill -9 -f "node server.js" 2>/dev/null || true
   sleep 1
-  PORT=3000 NODE_ENV=production nohup node server.js > server.log 2>&1 &
+  PORT=3000 NODE_ENV=production nohup "$NODE_BIN" server.js > server.log 2>&1 &
   echo "Server started with PID: $!"
+  sleep 3
+  echo "=== Server Log Output (server.log) ==="
+  cat server.log || true
 fi
 
 echo "=== Deployment complete! ==="
