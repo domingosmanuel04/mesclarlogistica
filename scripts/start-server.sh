@@ -1,86 +1,66 @@
 #!/usr/bin/env bash
-# Idempotent Next.js launcher / watchdog for cPanel shared hosting.
-# - If the app already answers on 127.0.0.1:3000 it does nothing.
-# - Otherwise it (re)starts server.js fully detached from the calling shell,
-#   so it survives the end of SSH sessions, PHP requests and cron jobs.
-# Usage: start-server.sh            -> start only if down (used by cron + index.php)
-#        start-server.sh --restart  -> force restart (used by deploy.sh)
+# Watchdog / launcher for the Next.js server on cPanel (run by cron every minute
+# and by index.php when the app is unreachable).
+# - Serves the ACTIVE release recorded by deploy.sh in tmp/active-port + tmp/active-dist
+# - Does nothing if the app answers
+# - Crash-loop protection: max 5 restarts per 10 minutes, then pauses 10 minutes
+# Usage: start-server.sh [--restart]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$ROOT_DIR" || exit 1
+. "$SCRIPT_DIR/lib-node.sh"
 
-APP_PORT=3000
-LOCK_FILE="$ROOT_DIR/tmp/start-server.lock"
+TMP_DIR="$ROOT_DIR/tmp"
 LOG_FILE="$ROOT_DIR/server.log"
-mkdir -p "$ROOT_DIR/tmp"
+RESTART_LOG="$TMP_DIR/restarts.log"
+PAUSE_FILE="$TMP_DIR/watchdog-paused-until"
+mkdir -p "$TMP_DIR"
 
-# Node binary detection (cPanel ea-nodejs / nvm / system)
-NODE_BIN=""
-for c in /opt/cpanel/ea-nodejs22/bin/node /opt/cpanel/ea-nodejs20/bin/node /opt/cpanel/ea-nodejs18/bin/node; do
-  if [ -x "$c" ]; then NODE_BIN="$c"; break; fi
-done
-if [ -z "$NODE_BIN" ] && [ -s "$HOME/.nvm/nvm.sh" ]; then
-  export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
-fi
-[ -z "$NODE_BIN" ] && NODE_BIN="$(command -v node || echo node)"
-export PATH="$(dirname "$NODE_BIN"):/usr/local/bin:/usr/bin:/bin:$PATH"
+MAX_RESTARTS=5
+WINDOW_SECONDS=600
+PAUSE_SECONDS=600
 
-is_up() {
-  if command -v curl >/dev/null 2>&1; then
-    curl -s -o /dev/null -m 5 "http://127.0.0.1:$APP_PORT/" && return 0
-    return 1
-  fi
-  (exec 3<>"/dev/tcp/127.0.0.1/$APP_PORT") 2>/dev/null
-}
+log() { echo "[$(date '+%F %T')] [watchdog] $*" >> "$LOG_FILE"; }
 
-# Single instance (avoid cron + php starting it twice at the same time)
-exec 9>"$LOCK_FILE"
-if command -v flock >/dev/null 2>&1; then
-  flock -n 9 || exit 0
-fi
+APP_PORT="$(cat "$TMP_DIR/active-port" 2>/dev/null || echo 3000)"
+APP_DIST="$(cat "$TMP_DIR/active-dist" 2>/dev/null || echo .next)"
 
-if [ "$1" != "--restart" ] && is_up; then
+exec 9>"$TMP_DIR/start-server.lock"
+command -v flock >/dev/null 2>&1 && { flock -n 9 || exit 0; }
+
+if [ "$1" != "--restart" ] && app_responds "$APP_PORT"; then
   exit 0
 fi
 
-# Never start without a valid production build
-if [ ! -f "$ROOT_DIR/.next/BUILD_ID" ]; then
-  echo "[$(date)] .next/BUILD_ID missing - run scripts/deploy.sh first" >> "$LOG_FILE"
+now=$(date +%s)
+if [ -f "$PAUSE_FILE" ] && [ "$now" -lt "$(cat "$PAUSE_FILE")" ]; then
+  exit 0
+fi
+
+# Crash-loop protection
+touch "$RESTART_LOG"
+awk -v min=$((now - WINDOW_SECONDS)) '$1 >= min' "$RESTART_LOG" > "$RESTART_LOG.tmp" && mv "$RESTART_LOG.tmp" "$RESTART_LOG"
+if [ "$(wc -l < "$RESTART_LOG")" -ge "$MAX_RESTARTS" ]; then
+  echo $((now + PAUSE_SECONDS)) > "$PAUSE_FILE"
+  log "ALERT: $MAX_RESTARTS restarts in $((WINDOW_SECONDS/60)) min - crash loop detected, pausing $((PAUSE_SECONDS/60)) min. Check the errors above."
+  exit 1
+fi
+echo "$now" >> "$RESTART_LOG"
+
+if [ ! -f "$ROOT_DIR/$APP_DIST/BUILD_ID" ]; then
+  log "no build found in $APP_DIST - run scripts/deploy.sh"
   exit 1
 fi
 
-# Stop old instances
-pkill -f "$ROOT_DIR/server.js" 2>/dev/null || true
-pkill -f "node server.js" 2>/dev/null || true
-sleep 2
+rotate_log "$LOG_FILE"
+stop_port "$APP_PORT"
+log "starting port=$APP_PORT dist=$APP_DIST"
+launch_instance "$APP_PORT" "$APP_DIST"
 
-set -a
-[ -f "$ROOT_DIR/.env" ] && . "$ROOT_DIR/.env"
-set +a
-export PORT=$APP_PORT
-export NODE_ENV=production
-
-# Keep the log from growing forever
-if [ -f "$LOG_FILE" ] && [ "$(wc -c < "$LOG_FILE")" -gt 5000000 ]; then
-  tail -c 1000000 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
+if wait_healthy "$APP_PORT" 90; then
+  log "server up on port $APP_PORT"
+  exit 0
 fi
-
-echo "[$(date)] Starting server.js with $NODE_BIN" >> "$LOG_FILE"
-if command -v setsid >/dev/null 2>&1; then
-  setsid nohup "$NODE_BIN" "$ROOT_DIR/server.js" >> "$LOG_FILE" 2>&1 < /dev/null 9>&- &
-else
-  nohup "$NODE_BIN" "$ROOT_DIR/server.js" >> "$LOG_FILE" 2>&1 < /dev/null 9>&- &
-fi
-disown 2>/dev/null || true
-
-# Wait until it answers (max ~60s)
-for i in $(seq 1 30); do
-  sleep 2
-  if is_up; then
-    echo "[$(date)] Server is up on port $APP_PORT" >> "$LOG_FILE"
-    exit 0
-  fi
-done
-echo "[$(date)] Server did not answer after 60s" >> "$LOG_FILE"
+log "server did not become healthy on port $APP_PORT"
 exit 1

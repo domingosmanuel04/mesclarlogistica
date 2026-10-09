@@ -1,154 +1,111 @@
 #!/usr/bin/env bash
-set -e
+# Zero-downtime (blue/green) deploy for cPanel shared hosting.
+#
+#   1. install deps + prisma
+#   2. build into a NEW release dir (.releases/<timestamp>) - live site untouched
+#   3. start the new release on the idle port (3000 <-> 3001)
+#   4. wait until /api/health == 200
+#   5. switch tmp/active-port (index.php proxy follows instantly)
+#   6. gracefully stop the old instance
+#   Any failure before step 5 => new instance killed, old one keeps serving (rollback).
+#
+# NOTE: the code must already be updated (the GitHub workflow runs
+# `git fetch && git reset --hard origin/main` BEFORE calling this script; we do
+# not reset here because rewriting a running bash script corrupts its execution).
+set -euo pipefail
 
-# Select best available Node binary (cPanel ea-nodejs20 / ea-nodejs18 / system nvm)
-NODE_BIN=""
-if [ -x "/opt/cpanel/ea-nodejs20/bin/node" ]; then
-  NODE_BIN="/opt/cpanel/ea-nodejs20/bin/node"
-  export PATH="/opt/cpanel/ea-nodejs20/bin:$PATH"
-elif [ -x "/opt/cpanel/ea-nodejs18/bin/node" ]; then
-  NODE_BIN="/opt/cpanel/ea-nodejs18/bin/node"
-  export PATH="/opt/cpanel/ea-nodejs18/bin:$PATH"
-elif [ -s "$HOME/.nvm/nvm.sh" ]; then
-  export NVM_DIR="$HOME/.nvm"
-  \. "$NVM_DIR/nvm.sh"
-  NODE_BIN="$(command -v node)"
-else
-  NODE_BIN="$(command -v node || echo "node")"
-fi
-
-export PATH="$(dirname "$NODE_BIN"):$PATH"
-NPM_BIN="$(command -v npm || echo "npm")"
-NPX_BIN="$(command -v npx || echo "npx")"
-
-ROOT_DIR="$(pwd)"
-if [ -d "/mnt/home103/mesclarl/mesclar" ]; then
-  ROOT_DIR="/mnt/home103/mesclarl/mesclar"
-elif [ -d "/home/mesclarl/mesclar" ]; then
-  ROOT_DIR="/home/mesclarl/mesclar"
-elif [ -d "$HOME/mesclar" ]; then
-  ROOT_DIR="$HOME/mesclar"
-elif [ -d "$HOME/public_html/mesclar" ]; then
-  ROOT_DIR="$HOME/public_html/mesclar"
-fi
-
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+. "$ROOT_DIR/scripts/lib-node.sh"
+NPM_BIN="$(command -v npm || echo npm)"
+NPX_BIN="$(command -v npx || echo npx)"
+TMP_DIR="$ROOT_DIR/tmp"
+mkdir -p "$TMP_DIR" "$ROOT_DIR/.releases"
 
-# Clean up legacy PostCSS MJS config if present to enforce CommonJS resolution
+step() { echo; echo "=== $* ==="; }
+
 rm -f "$ROOT_DIR/postcss.config.mjs" 2>/dev/null || true
 
-echo "=== 0. Immediate Sync of Web Root Proxy Files (.htaccess & index.php) ==="
-for PUBLIC_DIR in "$HOME/public_html" "/home/mesclarl/public_html" "/mnt/home103/mesclarl/public_html" "$ROOT_DIR/public"; do
-  if [ -d "$PUBLIC_DIR" ]; then
-    cp -f "$ROOT_DIR/.htaccess" "$PUBLIC_DIR/.htaccess" 2>/dev/null || true
-    cp -f "$ROOT_DIR/index.php" "$PUBLIC_DIR/index.php" 2>/dev/null || true
-  fi
-done
+sync_proxy_files() {
+  for PUBLIC_DIR in "$HOME/public_html" "/home/mesclarl/public_html" "/mnt/home103/mesclarl/public_html"; do
+    if [ -d "$PUBLIC_DIR" ]; then
+      cp -f "$ROOT_DIR/.htaccess" "$PUBLIC_DIR/.htaccess" 2>/dev/null || true
+      cp -f "$ROOT_DIR/index.php" "$PUBLIC_DIR/index.php" 2>/dev/null || true
+    fi
+  done
+}
 
-echo "=== 1. Pulling latest changes from main ==="
-git fetch origin main
-git reset --hard origin/main
-rm -f "$ROOT_DIR/postcss.config.mjs" 2>/dev/null || true
+step "0. Sync web root proxy files"
+sync_proxy_files
 
-if [ ! -f "$ROOT_DIR/.env" ] && [ -f "$ROOT_DIR/.env.example" ]; then
-  echo "=== Creating .env from .env.example ==="
-  cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
-fi
+step "1. Environment (.env)"
+if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi
+grep -q '^AUTH_SECRET=' .env 2>/dev/null || echo 'AUTH_SECRET="mesclar-logistica-secret-key-prod-2026-minimum-32-bytes"' >> .env
+grep -q '^NEXTAUTH_URL=' .env 2>/dev/null || echo 'NEXTAUTH_URL="https://mesclarlogistica.com"' >> .env
+sed -i 's/localhost:5432/127.0.0.1:5432/g' .env 2>/dev/null || true
+grep -q '^DATABASE_URL=' .env 2>/dev/null || echo 'DATABASE_URL="postgresql://mesclar:mesclar_secret@127.0.0.1:5432/mesclar_logistica?schema=public"' >> .env
+set -a; . ./.env; set +a
+echo "Node: $NODE_BIN ($("$NODE_BIN" -v 2>/dev/null || true))"
 
-# Ensure AUTH_SECRET is configured in .env
-if ! grep -q '^AUTH_SECRET=' "$ROOT_DIR/.env" 2>/dev/null; then
-  echo "=== Configuring AUTH_SECRET in .env ==="
-  echo 'AUTH_SECRET="mesclar-logistica-secret-key-prod-2026-minimum-32-bytes"' >> "$ROOT_DIR/.env"
-fi
-
-# Ensure NEXTAUTH_URL is configured in .env
-if ! grep -q '^NEXTAUTH_URL=' "$ROOT_DIR/.env" 2>/dev/null; then
-  echo 'NEXTAUTH_URL="https://mesclarlogistica.com"' >> "$ROOT_DIR/.env"
-fi
-
-# Force 127.0.0.1:5432 instead of localhost:5432 in .env to prevent Node 20 IPv6 resolution errors
-if [ -f "$ROOT_DIR/.env" ]; then
-  sed -i 's/localhost:5432/127.0.0.1:5432/g' "$ROOT_DIR/.env" 2>/dev/null || true
-fi
-
-# Ensure DATABASE_URL is valid in .env to prevent Prisma validation errors
-if ! grep -q '^DATABASE_URL=' "$ROOT_DIR/.env" 2>/dev/null; then
-  echo "=== Configuring default DATABASE_URL in .env ==="
-  echo 'DATABASE_URL="postgresql://mesclar:mesclar_secret@127.0.0.1:5432/mesclar_logistica?schema=public"' >> "$ROOT_DIR/.env"
-fi
-
-# Export environment variables for the build and server execution process
-set -a
-[ -f "$ROOT_DIR/.env" ] && . "$ROOT_DIR/.env"
-export PORT=3000
-set +a
-
-echo "=== Using Node Binary: $NODE_BIN ($($NODE_BIN -v 2>/dev/null || true)) ==="
-
-echo "=== 2. Installing all dependencies (including PostCSS & Tailwind) ==="
+step "2. Install dependencies"
 "$NODE_BIN" "$NPM_BIN" config set omit "" 2>/dev/null || true
-"$NODE_BIN" "$NPM_BIN" config set production false 2>/dev/null || true
-NODE_ENV=development "$NODE_BIN" "$NPM_BIN" install --include=dev --production=false
+NODE_ENV=development "$NODE_BIN" "$NPM_BIN" install --include=dev --production=false --no-audit --no-fund
 
-echo "=== Guaranteeing PostCSS & Tailwind Packages ==="
-NODE_ENV=development "$NODE_BIN" "$NPM_BIN" install @tailwindcss/postcss postcss autoprefixer tailwindcss --production=false
+step "3. Prisma generate + schema sync"
+"$NODE_BIN" "$NPX_BIN" prisma generate
+"$NODE_BIN" scripts/wait-for-db.js || echo "WARNING: database not reachable"
+"$NODE_BIN" "$NPX_BIN" prisma db push --skip-generate || echo "WARNING: prisma db push failed"
+if [ "${RUN_SEED:-0}" = "1" ]; then "$NODE_BIN" "$NPX_BIN" prisma db seed || true; fi
 
-echo "=== 3. Generating Prisma client & syncing database ==="
-"$NODE_BIN" "$NPX_BIN" prisma generate || true
-"$NODE_BIN" "$NPX_BIN" prisma db push --accept-data-loss || true
-"$NODE_BIN" "$NPX_BIN" prisma db seed || true
-
-echo "=== 4. Building Next.js application (into .next_build, live site stays online) ==="
-export NODE_ENV=production
-export NODE_OPTIONS="--max-old-space-size=2048"
-rm -rf "$ROOT_DIR/.next_build"
-if NEXT_DIST_DIR=".next_build" "$NODE_BIN" "$NPM_BIN" run build && [ -f "$ROOT_DIR/.next_build/BUILD_ID" ]; then
-  echo "=== Build OK - swapping .next_build -> .next ==="
-  rm -rf "$ROOT_DIR/.next_old"
-  [ -d "$ROOT_DIR/.next" ] && mv "$ROOT_DIR/.next" "$ROOT_DIR/.next_old"
-  mv "$ROOT_DIR/.next_build" "$ROOT_DIR/.next"
-  rm -rf "$ROOT_DIR/.next_old"
-else
-  echo "::error:: Build FAILED - keeping the previous version online"
-  rm -rf "$ROOT_DIR/.next_build"
-  bash "$ROOT_DIR/scripts/start-server.sh" || true
+step "4. Build new release (live site untouched)"
+RELEASE_ID="$(date +%Y%m%d%H%M%S)"
+NEW_DIST=".releases/$RELEASE_ID"
+export NODE_ENV=production NODE_OPTIONS="--max-old-space-size=2048"
+if ! NEXT_DIST_DIR="$NEW_DIST" "$NODE_BIN" "$NPM_BIN" run build || [ ! -f "$NEW_DIST/BUILD_ID" ]; then
+  echo "::error:: Build FAILED - previous version stays online"
+  rm -rf "$NEW_DIST"
+  bash scripts/start-server.sh || true
   exit 1
 fi
 
-echo "=== 5. Re-syncing web root proxy files (.htaccess & index.php) ==="
-for PUBLIC_DIR in "$HOME/public_html" "/home/mesclarl/public_html" "/mnt/home103/mesclarl/public_html" "$ROOT_DIR/public"; do
-  if [ -d "$PUBLIC_DIR" ]; then
-    cp -f "$ROOT_DIR/.htaccess" "$PUBLIC_DIR/.htaccess" 2>/dev/null || true
-    cp -f "$ROOT_DIR/index.php" "$PUBLIC_DIR/index.php" 2>/dev/null || true
-  fi
-done
+OLD_PORT="$(cat "$TMP_DIR/active-port" 2>/dev/null || echo 3000)"
+OLD_DIST="$(cat "$TMP_DIR/active-dist" 2>/dev/null || echo .next)"
+if [ "$OLD_PORT" = "3000" ]; then NEW_PORT=3001; else NEW_PORT=3000; fi
 
-echo "=== 6. Restarting Node / Passenger / PM2 Process ==="
-# Touch tmp/restart.txt for cPanel Phusion Passenger / LiteSpeed
-mkdir -p "$ROOT_DIR/tmp"
-touch "$ROOT_DIR/tmp/restart.txt"
-echo "=== Triggered cPanel Passenger reload via tmp/restart.txt ==="
+step "5. Start release $RELEASE_ID on port $NEW_PORT (old: $OLD_PORT)"
+stop_port "$NEW_PORT"   # leftovers from a failed deploy
+launch_instance "$NEW_PORT" "$NEW_DIST"
 
-if command -v pm2 &> /dev/null; then
-  PORT=3000 pm2 restart mesclar-logistica --update-env 2>/dev/null || \
-  PORT=3000 pm2 restart mesclar --update-env 2>/dev/null || \
-  PORT=3000 pm2 start server.js --name "mesclar-logistica" || \
-  PORT=3000 pm2 start npm --name "mesclar-logistica" -- start
-  pm2 save || true
-  pm2 status || true
-else
-  echo "=== Restarting server.js (detached) ==="
-  chmod +x "$ROOT_DIR/scripts/start-server.sh" 2>/dev/null || true
-  bash "$ROOT_DIR/scripts/start-server.sh" --restart || true
-  echo "=== Server Log Output (last 30 lines) ==="
-  tail -n 30 server.log || true
+if ! wait_healthy "$NEW_PORT" 180; then
+  echo "::error:: New release not healthy on port $NEW_PORT - ROLLBACK (old version keeps serving)"
+  tail -n 60 server.log || true
+  stop_port "$NEW_PORT"
+  rm -rf "$NEW_DIST"
+  exit 1
 fi
 
-echo "=== 7. Installing cron watchdog (restarts the app automatically if it dies) ==="
-if command -v crontab &> /dev/null; then
+step "6. Switch traffic to port $NEW_PORT"
+echo "$NEW_PORT" > "$TMP_DIR/active-port.tmp" && mv "$TMP_DIR/active-port.tmp" "$TMP_DIR/active-port"
+echo "$NEW_DIST" > "$TMP_DIR/active-dist.tmp" && mv "$TMP_DIR/active-dist.tmp" "$TMP_DIR/active-dist"
+sync_proxy_files
+sleep 5   # let in-flight requests on the old instance finish routing
+
+step "7. Gracefully stop old instance (port $OLD_PORT)"
+stop_port "$OLD_PORT"
+rm -f "$TMP_DIR/restarts.log" "$TMP_DIR/watchdog-paused-until"
+
+step "8. Cleanup old releases (keep active + 1 previous)"
+{ ls -1dt .releases/*/ 2>/dev/null | sed 's#/$##' | grep -v "^$NEW_DIST$" | tail -n +2 | xargs -r rm -rf; } || true
+[ "$OLD_DIST" = ".next" ] && rm -rf .next 2>/dev/null || true
+
+step "9. Cron watchdog"
+if command -v crontab >/dev/null 2>&1; then
   CRON_LINE="* * * * * /bin/bash $ROOT_DIR/scripts/start-server.sh >/dev/null 2>&1"
   ( crontab -l 2>/dev/null | grep -v "scripts/start-server.sh" ; echo "$CRON_LINE" ) | crontab - || true
   crontab -l 2>/dev/null | grep "start-server.sh" || echo "WARNING: could not install cron watchdog"
 fi
 
-echo "=== Deployment complete! ==="
+echo
+echo "=== Deployment complete: release $RELEASE_ID live on port $NEW_PORT ==="
+curl -s -m 5 "http://127.0.0.1:$NEW_PORT/api/health" || true
+echo

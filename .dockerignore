@@ -5,3 +5,7 @@ uploads
 *.md
 .env
 .env.local
+.releases
+.next_build
+tmp
+server.log

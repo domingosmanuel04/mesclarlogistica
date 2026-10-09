@@ -24,11 +24,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: deps
+    command: ["sh", "./scripts/docker-entrypoint.sh"]
     container_name: mesclar-web
     restart: unless-stopped
     ports:
       - "3020:3000"
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgresql://mesclar:mesclar_secret@db:5432/mesclar_logistica?schema=public
       AUTH_SECRET: mesclar-dev-auth-secret-minimo-32-caracteres
       NEXTAUTH_URL: http://localhost:3020

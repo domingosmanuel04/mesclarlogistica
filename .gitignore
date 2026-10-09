@@ -44,3 +44,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# blue/green releases & runtime state (scripts/deploy.sh)
+/.releases/
+/tmp/
+server.log
+/deploy/.active-colour
