@@ -37,9 +37,9 @@ $is_https = (
 $proto = $is_https ? 'https' : 'http';
 
 foreach ($target_ports as $port) {
-    $fp = @fsockopen("127.0.0.1", $port, $errno, $errstr, 2);
+    $fp = @fsockopen("127.0.0.1", $port, $errno, $errstr, 1);
     if (!$fp) {
-        $fp = @fsockopen("localhost", $port, $errno, $errstr, 2);
+        $fp = @fsockopen("localhost", $port, $errno, $errstr, 1);
     }
     if ($fp) {
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
@@ -107,6 +107,24 @@ foreach ($target_ports as $port) {
             echo $content;
             exit;
         }
+    }
+}
+
+// Self-healing: Node is down -> trigger the detached launcher (max once per 60s)
+$app_dirs = array('/mnt/home103/mesclarl/mesclar', '/home/mesclarl/mesclar', dirname(__DIR__) . '/mesclar', __DIR__ . '/mesclar', __DIR__);
+foreach ($app_dirs as $app_dir) {
+    $starter = $app_dir . '/scripts/start-server.sh';
+    if (@is_file($starter)) {
+        $stamp = $app_dir . '/tmp/php-autostart.stamp';
+        @mkdir($app_dir . '/tmp', 0755, true);
+        if (!@is_file($stamp) || (time() - @filemtime($stamp)) > 60) {
+            @touch($stamp);
+            $cmd = '/bin/bash ' . escapeshellarg($starter) . ' > /dev/null 2>&1 &';
+            if (function_exists('exec')) { @exec($cmd); }
+            elseif (function_exists('shell_exec')) { @shell_exec($cmd); }
+            elseif (function_exists('proc_open')) { $p = @proc_open($cmd, array(), $pipes); if (is_resource($p)) { @proc_close($p); } }
+        }
+        break;
     }
 }
 

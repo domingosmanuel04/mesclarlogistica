@@ -2,6 +2,14 @@ const { createServer } = require("http");
 const { parse } = require("url");
 const next = require("next");
 
+// Do not let a stray async error (e.g. DB timeout) kill the whole site
+process.on("unhandledRejection", (reason) => {
+  console.error(`[${new Date().toISOString()}] Unhandled rejection:`, reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error(`[${new Date().toISOString()}] Uncaught exception:`, err);
+});
+
 const dev = false;
 const app = next({ dev });
 const handle = app.getRequestHandler();

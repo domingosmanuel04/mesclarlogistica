@@ -98,10 +98,22 @@ echo "=== 3. Generating Prisma client & syncing database ==="
 "$NODE_BIN" "$NPX_BIN" prisma db push --accept-data-loss || true
 "$NODE_BIN" "$NPX_BIN" prisma db seed || true
 
-echo "=== 4. Building Next.js application ==="
+echo "=== 4. Building Next.js application (into .next_build, live site stays online) ==="
 export NODE_ENV=production
 export NODE_OPTIONS="--max-old-space-size=2048"
-"$NODE_BIN" "$NPM_BIN" run build
+rm -rf "$ROOT_DIR/.next_build"
+if NEXT_DIST_DIR=".next_build" "$NODE_BIN" "$NPM_BIN" run build && [ -f "$ROOT_DIR/.next_build/BUILD_ID" ]; then
+  echo "=== Build OK - swapping .next_build -> .next ==="
+  rm -rf "$ROOT_DIR/.next_old"
+  [ -d "$ROOT_DIR/.next" ] && mv "$ROOT_DIR/.next" "$ROOT_DIR/.next_old"
+  mv "$ROOT_DIR/.next_build" "$ROOT_DIR/.next"
+  rm -rf "$ROOT_DIR/.next_old"
+else
+  echo "::error:: Build FAILED - keeping the previous version online"
+  rm -rf "$ROOT_DIR/.next_build"
+  bash "$ROOT_DIR/scripts/start-server.sh" || true
+  exit 1
+fi
 
 echo "=== 5. Re-syncing web root proxy files (.htaccess & index.php) ==="
 for PUBLIC_DIR in "$HOME/public_html" "/home/mesclarl/public_html" "/mnt/home103/mesclarl/public_html" "$ROOT_DIR/public"; do
@@ -125,15 +137,18 @@ if command -v pm2 &> /dev/null; then
   pm2 save || true
   pm2 status || true
 else
-  echo "=== Running server.js with $NODE_BIN in background ==="
-  pkill -9 -f "server.js" 2>/dev/null || true
-  pkill -9 -f "node server.js" 2>/dev/null || true
-  sleep 1
-  PORT=3000 NODE_ENV=production nohup "$NODE_BIN" server.js > server.log 2>&1 &
-  echo "Server started with PID: $!"
-  sleep 3
-  echo "=== Server Log Output (server.log) ==="
-  cat server.log || true
+  echo "=== Restarting server.js (detached) ==="
+  chmod +x "$ROOT_DIR/scripts/start-server.sh" 2>/dev/null || true
+  bash "$ROOT_DIR/scripts/start-server.sh" --restart || true
+  echo "=== Server Log Output (last 30 lines) ==="
+  tail -n 30 server.log || true
+fi
+
+echo "=== 7. Installing cron watchdog (restarts the app automatically if it dies) ==="
+if command -v crontab &> /dev/null; then
+  CRON_LINE="* * * * * /bin/bash $ROOT_DIR/scripts/start-server.sh >/dev/null 2>&1"
+  ( crontab -l 2>/dev/null | grep -v "scripts/start-server.sh" ; echo "$CRON_LINE" ) | crontab - || true
+  crontab -l 2>/dev/null | grep "start-server.sh" || echo "WARNING: could not install cron watchdog"
 fi
 
 echo "=== Deployment complete! ==="
