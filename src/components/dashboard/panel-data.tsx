@@ -2955,7 +2955,11 @@ export function SellerProfileForm() {
               phone: accRes.phone ?? "",
               whatsapp: accRes.whatsapp ?? "",
             });
-            if (accRes.photoUrl) setInitialPhoto(accRes.photoUrl);
+            if (accRes.photoUrl) {
+              setInitialPhoto(accRes.photoUrl);
+            } else if (sellerRes?.photoUrl) {
+              setInitialPhoto(sellerRes.photoUrl);
+            }
           }
           if (sellerRes) {
             setBio(sellerRes.bio ?? "");
@@ -3287,17 +3291,66 @@ export function SellerProfileForm() {
                     {activePhoto ? "Trocar foto" : "Carregar foto"}
                   </Button>
 
-                  {activePhoto && (
+                  {photoFile && (
+                    <Button
+                      type="button"
+                      variant="gold"
+                      size="sm"
+                      disabled={savingAccount}
+                      leftIcon={savingAccount ? RefreshCw : Check}
+                      onClick={async () => {
+                        const fd = new FormData();
+                        fd.append("name", accountForm.name.trim() || "Profissional");
+                        fd.append("phone", accountForm.phone);
+                        fd.append("whatsapp", accountForm.whatsapp);
+                        fd.append("photo", photoFile);
+                        setSavingAccount(true);
+                        try {
+                          const res = await fetch("/api/account", { method: "PATCH", body: fd });
+                          const json = await res.json().catch(() => ({}));
+                          if (res.ok) {
+                            if (json.photoUrl) {
+                              setInitialPhoto(json.photoUrl);
+                              setPhotoFile(null);
+                            }
+                            await update();
+                            await refreshProfile();
+                            setMsg({ text: "Foto de perfil guardada com sucesso!", type: "success" });
+                          } else {
+                            setMsg({ text: json.error || "Erro ao guardar foto.", type: "error" });
+                          }
+                        } catch {
+                          setMsg({ text: "Erro de ligação ao guardar foto.", type: "error" });
+                        } finally {
+                          setSavingAccount(false);
+                        }
+                      }}
+                    >
+                      {savingAccount ? "A guardar..." : "Guardar Foto"}
+                    </Button>
+                  )}
+
+                  {activePhoto && !photoFile && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       leftIcon={Trash2}
                       className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
-                      onClick={() => {
+                      onClick={async () => {
                         setPhotoFile(null);
                         setPhotoPreview(null);
                         setInitialPhoto(null);
+                        const fd = new FormData();
+                        fd.append("removePhoto", "true");
+                        try {
+                          await fetch("/api/account", { method: "PATCH", body: fd });
+                          await update();
+                          await refreshProfile();
+                          setMsg({ text: "Foto de perfil removida com sucesso!", type: "success" });
+                        } catch {
+                          /* ignore */
+                        }
                       }}
                     >
                       Remover foto

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       seller = await prisma.seller.findFirst().catch(() => null);
     }
     if (!seller) {
-      seller = { id: `seller-${authz.session.user.id}` } as any;
+      return NextResponse.json({ error: "Perfil de profissional não encontrado." }, { status: 400 });
     }
 
     const contentType = request.headers.get("content-type") || "";
@@ -123,38 +123,19 @@ export async function POST(request: Request) {
       bannerUrl = `/api/uploads/${saved.relativePath}`;
     }
 
-    try {
-      const row = await prisma.training.create({
-        data: {
-          sellerId: seller.id,
-          title: parsed.data.title,
-          description: parsed.data.description,
-          linkUrl: parsed.data.linkUrl,
-          bannerUrl,
-          sortOrder: parsed.data.sortOrder,
-          active: parsed.data.active,
-        },
-      });
+    const row = await prisma.training.create({
+      data: {
+        sellerId: seller.id,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        linkUrl: parsed.data.linkUrl,
+        bannerUrl,
+        sortOrder: parsed.data.sortOrder,
+        active: parsed.data.active,
+      },
+    });
 
-      return NextResponse.json(row, { status: 201 });
-    } catch {
-      return NextResponse.json(
-        {
-          id: `trn-${Date.now()}`,
-          sellerId: seller.id,
-          title: parsed.data.title,
-          description: parsed.data.description,
-          linkUrl: parsed.data.linkUrl,
-          bannerUrl,
-          sortOrder: parsed.data.sortOrder,
-          active: parsed.data.active,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          ok: true,
-        },
-        { status: 201 }
-      );
-    }
+    return NextResponse.json(row, { status: 201 });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Erro ao criar formação." }, { status: 500 });

@@ -129,7 +129,7 @@ function FileDropzone({
         <div className="relative overflow-hidden rounded-2xl border border-mesclar-border bg-white dark:bg-[#0A192F] dark:border-[#1e3a5f] shadow-sm p-4">
           <div className="flex gap-4 items-center">
             {previewUrl ? (
-              <div className="relative h-24 w-18 shrink-0 overflow-hidden rounded-xl border border-mesclar-border bg-mesclar-cream dark:bg-[#0E223F] shadow-sm">
+              <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl border border-mesclar-border bg-mesclar-cream dark:bg-[#0E223F] shadow-sm">
                 <Image
                   src={previewUrl}
                   alt="Preview capa"
@@ -139,7 +139,7 @@ function FileDropzone({
                 />
               </div>
             ) : (
-              <div className="flex h-24 w-18 shrink-0 flex-col items-center justify-center rounded-xl bg-mesclar-black text-mesclar-gold shadow-sm">
+              <div className="flex h-24 w-20 shrink-0 flex-col items-center justify-center rounded-xl bg-mesclar-black text-mesclar-gold shadow-sm">
                 <FileText className="h-8 w-8" />
                 <span className="mt-1 text-[10px] font-black uppercase tracking-wider">PDF</span>
               </div>

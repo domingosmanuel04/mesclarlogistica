@@ -21,9 +21,15 @@ export async function GET(_req: Request, { params }: Params) {
       ? "application/pdf"
       : ext === ".png"
         ? "image/png"
-        : ext === ".jpg" || ext === ".jpeg"
-          ? "image/jpeg"
-          : "application/octet-stream";
+        : ext === ".webp"
+          ? "image/webp"
+          : ext === ".jpg" || ext === ".jpeg"
+            ? "image/jpeg"
+            : ext === ".svg"
+              ? "image/svg+xml"
+              : ext === ".gif"
+                ? "image/gif"
+                : "application/octet-stream";
 
   const nodeStream = createReadStream(filePath);
   const webStream = Readable.toWeb(nodeStream) as ReadableStream;

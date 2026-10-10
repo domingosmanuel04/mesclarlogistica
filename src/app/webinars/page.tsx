@@ -7,11 +7,12 @@ import {
   ExternalLink,
   Calendar,
   User,
-  PlusCircle,
   Share2,
+  PlusCircle,
 } from "lucide-react";
 import { getWebinarsWithInitialSeed } from "@/lib/webinars-seed";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { stripHtml } from "@/lib/html-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -142,7 +143,7 @@ export default async function WebinarsPage() {
 
                     {/* Descrição */}
                     <p className="mt-3 flex-1 text-xs text-mesclar-muted leading-relaxed line-clamp-3">
-                      {item.description}
+                      {stripHtml(item.description)}
                     </p>
 
                     {/* Ações: Aceder ao Webinar e Partilhar */}

@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { stripHtml } from "@/lib/html-utils";
 
 export const metadata: Metadata = {
   title: "Academia Logística | Formações, Competências Técnicas e Certificações — Mesclar",
@@ -147,7 +148,7 @@ export default async function AcademiaPage() {
                     </h3>
                     {item.description && (
                       <p className="mt-2 text-xs leading-relaxed text-mesclar-muted line-clamp-3">
-                        {item.description}
+                        {stripHtml(item.description)}
                       </p>
                     )}
                     <div className="mt-auto pt-6 flex items-center justify-between border-t border-mesclar-border/60">

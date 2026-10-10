@@ -59,7 +59,7 @@ export default function CriarArtigoPage() {
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [excerpt, setExcerpt] = useState("");
-  const [coverUrl, setCoverUrl] = useState("/services/gestao-contratos.jpg");
+  const [coverUrl, setCoverUrl] = useState("");
   const [tags, setTags] = useState("Logística, Procurement, Gestão");
   const [readTime, setReadTime] = useState(5);
   const [content, setContent] = useState(

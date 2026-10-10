@@ -3,6 +3,7 @@ import Image from "next/image";
 import { PageHero } from "@/components/ui/page-hero";
 import { prisma } from "@/lib/prisma";
 import { GraduationCap, ArrowRight, ExternalLink } from "lucide-react";
+import { stripHtml } from "@/lib/html-utils";
 
 export const metadata: Metadata = {
   title: "Formação",
@@ -94,7 +95,7 @@ export default async function FormacaoPage() {
 
                       {item.description ? (
                         <p className="mt-2.5 text-xs text-mesclar-muted leading-relaxed line-clamp-3">
-                          {item.description}
+                          {stripHtml(item.description)}
                         </p>
                       ) : (
                         <p className="mt-2.5 text-xs text-mesclar-muted/70 italic">

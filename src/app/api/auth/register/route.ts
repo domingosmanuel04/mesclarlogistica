@@ -30,12 +30,7 @@ export async function POST(request: Request) {
     const data = registerSchema.parse(body);
     const email = data.email.toLowerCase();
 
-    let existing = null;
-    try {
-      existing = await prisma.user.findUnique({ where: { email } });
-    } catch (err) {
-      console.error("[register:db-lookup-error]", err);
-    }
+    const existing = await prisma.user.findUnique({ where: { email } }).catch(() => null);
     if (existing) {
       return NextResponse.json({ error: "Email já registado." }, { status: 409 });
     }
@@ -43,51 +38,46 @@ export async function POST(request: Request) {
     const registrationNumber = await generateNextRegistrationNumber(data.name);
     const passwordHash = await bcrypt.hash(data.password, 12);
 
-    let user = null;
+    let slug = slugify(data.name);
     try {
-      let slug = slugify(data.name);
-      try {
-        const existingSlug = await prisma.author.findUnique({ where: { slug } });
-        if (existingSlug) slug = `${slug}-${Date.now().toString(36)}`;
-      } catch {
-        /* proceed with base slug */
-      }
-
-      user = await prisma.user.create({
-        data: {
-          name: data.name,
-          email,
-          registrationNumber,
-          phone: data.phone,
-          whatsapp: data.whatsapp,
-          passwordHash,
-          role: "SELLER",
-          seller: {
-            create: {
-              bio: "Profissional registado na Mesclar Logística",
-              isActive: true,
-            },
-          },
-          author: {
-            create: {
-              name: data.name,
-              slug,
-              bio: "Profissional e Especialista em Logística registado na Mesclar Logística.",
-              specialty: "Logística e Procurement",
-              photoUrl: "/authors/default.jpg",
-              coverUrl: "/services/gestao-contratos.jpg",
-              isValidated: true,
-              validatedAt: new Date(),
-            },
-          },
-        },
-      });
-    } catch (err) {
-      console.error("[register:db-create-error]", err);
+      const existingSlug = await prisma.author.findUnique({ where: { slug } });
+      if (existingSlug) slug = `${slug}-${Date.now().toString(36)}`;
+    } catch {
+      /* proceed with base slug */
     }
 
-    const finalId = user?.id || `reg-user-${Date.now()}`;
-    const finalReg = user?.registrationNumber || registrationNumber;
+    const user = await prisma.user.create({
+      data: {
+        name: data.name,
+        email,
+        registrationNumber,
+        phone: data.phone,
+        whatsapp: data.whatsapp,
+        passwordHash,
+        role: "SELLER",
+        seller: {
+          create: {
+            bio: "Profissional registado na Mesclar Logística",
+            isActive: true,
+          },
+        },
+        author: {
+          create: {
+            name: data.name,
+            slug,
+            bio: "Profissional e Especialista em Logística registado na Mesclar Logística.",
+            specialty: "Logística e Procurement",
+            photoUrl: "/authors/default.jpg",
+            coverUrl: "/services/gestao-contratos.jpg",
+            isValidated: true,
+            validatedAt: new Date(),
+          },
+        },
+      },
+    });
+
+    const finalId = user.id;
+    const finalReg = user.registrationNumber || registrationNumber;
 
     const { cacheUser } = await import("@/lib/user-cache");
     cacheUser({

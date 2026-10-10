@@ -41,9 +41,10 @@ export function ArticleCoverUploader({
   const [error, setError] = useState<string | null>(null);
   const [showManualUrl, setShowManualUrl] = useState(false);
   const [manualUrlInput, setManualUrlInput] = useState(value);
+  const [internalPreview, setInternalPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const displayImage = previewUrl || value;
+  const displayImage = internalPreview || previewUrl || value;
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -60,6 +61,8 @@ export function ArticleCoverUploader({
     }
 
     setError(null);
+    const objUrl = URL.createObjectURL(file);
+    setInternalPreview(objUrl);
 
     if (onFileSelectDirect) {
       onFileSelectDirect(file);
@@ -86,6 +89,7 @@ export function ArticleCoverUploader({
       if (onChange) {
         onChange(data.url);
       }
+      setInternalPreview(data.url);
       setManualUrlInput(data.url);
     } catch (err: any) {
       setError(err.message || "Falha no envio da imagem de capa.");
@@ -167,7 +171,12 @@ export function ArticleCoverUploader({
                 variant="outline"
                 size="sm"
                 disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                    fileInputRef.current.click();
+                  }
+                }}
                 leftIcon={uploading ? RefreshCw : Upload}
               >
                 {uploading ? "A carregar..." : "Substituir Imagem"}
@@ -175,10 +184,12 @@ export function ArticleCoverUploader({
               <button
                 type="button"
                 onClick={() => {
+                  setInternalPreview(null);
                   if (onClear) onClear();
                   if (onChange) onChange("");
                   if (onFileSelectDirect) onFileSelectDirect(null);
                   setManualUrlInput("");
+                  if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
                 className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 font-semibold px-2 py-1"
               >

@@ -16,9 +16,9 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { Button } from "@/components/ui/button";
-import { stripHtml } from "@/lib/html-utils";
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { stripHtml, SafeHtml } from "@/lib/html-utils";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -242,7 +242,8 @@ export default async function ArtigoSinglePage({ params }: Props) {
 
         {/* Conteúdo Renderizado (HTML Formatado do Editor) */}
         <div className="mt-10 rounded-3xl border border-mesclar-border/70 bg-white p-6 sm:p-10 shadow-xs">
-          <div
+          <SafeHtml
+            html={article.content}
             className="prose prose-slate max-w-none text-slate-800 leading-relaxed
               prose-headings:text-mesclar-black prose-headings:font-bold prose-headings:tracking-tight
               prose-h1:text-2xl prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4
@@ -256,7 +257,6 @@ export default async function ArtigoSinglePage({ params }: Props) {
               prose-table:w-full prose-table:border-collapse prose-table:my-6
               prose-th:border prose-th:border-slate-200 prose-th:bg-slate-50 prose-th:p-3 prose-th:text-left
               prose-td:border prose-td:border-slate-200 prose-td:p-3"
-            dangerouslySetInnerHTML={{ __html: article.content }}
           />
         </div>
 

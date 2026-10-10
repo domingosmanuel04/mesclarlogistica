@@ -40,25 +40,67 @@ export async function getSellerForUser(userId: string) {
   try {
     let seller = await prisma.seller.findUnique({ where: { userId } });
     if (!seller) {
-      seller = await prisma.seller.create({
-        data: {
-          userId,
-          bio: "Profissional registado na Mesclar Logística",
-          isActive: true,
-        },
-      });
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        seller = await prisma.seller.create({
+          data: {
+            userId: user.id,
+            bio: "Profissional registado na Mesclar Logística",
+            isActive: true,
+          },
+        });
+        if (user.role === "CUSTOMER") {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { role: "SELLER" },
+          }).catch(() => null);
+        }
+      }
     }
     return seller;
   } catch (err) {
     console.error("Error in getSellerForUser:", err);
-    return {
-      id: `seller-${userId}`,
-      userId,
-      bio: "Profissional registado na Mesclar Logística",
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    } as any;
+    return null;
+  }
+}
+
+export async function getAuthorForUser(userId: string) {
+  try {
+    let author = await prisma.author.findUnique({ where: { userId } });
+    if (!author) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        let baseSlug = user.name
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^\w\s-]/g, "")
+          .trim()
+          .replace(/[\s_-]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+        if (!baseSlug) baseSlug = `autor-${userId.slice(-6)}`;
+        let finalSlug = baseSlug;
+        const exists = await prisma.author.findUnique({ where: { slug: finalSlug } });
+        if (exists) finalSlug = `${baseSlug}-${Date.now().toString(36)}`;
+
+        author = await prisma.author.create({
+          data: {
+            userId: user.id,
+            name: user.name,
+            slug: finalSlug,
+            bio: "Profissional e Especialista em Logística registado na Mesclar Logística.",
+            specialty: "Logística e Procurement",
+            photoUrl: "/authors/default.jpg",
+            isValidated: true,
+            validatedAt: new Date(),
+          },
+        });
+      }
+    }
+    return author;
+  } catch (err) {
+    console.error("Error in getAuthorForUser:", err);
+    return null;
   }
 }
 

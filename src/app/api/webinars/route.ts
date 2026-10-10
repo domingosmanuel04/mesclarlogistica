@@ -136,42 +136,21 @@ export async function POST(request: Request) {
     }
     const eventDate = eventDateStr ? new Date(eventDateStr) : null;
 
-    try {
-      const row = await prisma.webinar.create({
-        data: {
-          sellerId: seller.id,
-          title: parsed.data.title,
-          description: parsed.data.description,
-          linkUrl: parsed.data.linkUrl,
-          speaker: parsed.data.speaker,
-          eventDate: eventDate && !isNaN(eventDate.getTime()) ? eventDate : null,
-          bannerUrl: bannerUrl,
-          sortOrder: parsed.data.sortOrder,
-          active: parsed.data.active,
-        },
-      });
+    const row = await prisma.webinar.create({
+      data: {
+        sellerId: seller.id,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        linkUrl: parsed.data.linkUrl,
+        speaker: parsed.data.speaker,
+        eventDate: eventDate && !isNaN(eventDate.getTime()) ? eventDate : null,
+        bannerUrl: bannerUrl,
+        sortOrder: parsed.data.sortOrder,
+        active: parsed.data.active,
+      },
+    });
 
-      return NextResponse.json(row, { status: 201 });
-    } catch {
-      return NextResponse.json(
-        {
-          id: `web-${Date.now()}`,
-          sellerId: seller.id,
-          title: parsed.data.title,
-          description: parsed.data.description,
-          linkUrl: parsed.data.linkUrl,
-          speaker: parsed.data.speaker,
-          eventDate: eventDate && !isNaN(eventDate.getTime()) ? eventDate.toISOString() : null,
-          bannerUrl: bannerUrl,
-          sortOrder: parsed.data.sortOrder,
-          active: parsed.data.active,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          ok: true,
-        },
-        { status: 201 }
-      );
-    }
+    return NextResponse.json(row, { status: 201 });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Erro ao criar webinar." }, { status: 500 });

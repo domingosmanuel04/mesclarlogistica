@@ -9,6 +9,7 @@ import {
 } from "@/components/dashboard/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { ArticleCoverUploader } from "@/components/editor/article-cover-uploader";
+import { stripHtml } from "@/lib/html-utils";
 import {
   Video,
   Plus,
@@ -331,8 +332,14 @@ export default function SellerWebinarsPage() {
               title="Clique aqui para carregar o banner de divulgação"
               recommendationText="Formatos aceites: JPG, PNG, WEBP (Recomendado 1200×675px, máx. 6MB)"
               previewUrl={preview || undefined}
-              onFileSelectDirect={(file) => setBanner(file)}
-              onClear={() => setBanner(null)}
+              onFileSelectDirect={(file) => {
+                setBanner(file);
+                setPreview(file ? URL.createObjectURL(file) : null);
+              }}
+              onClear={() => {
+                setBanner(null);
+                setPreview(null);
+              }}
             />
 
             <div className="pt-2">
@@ -395,7 +402,7 @@ export default function SellerWebinarsPage() {
                       {row.title}
                     </h4>
                     <p className="mt-2 flex-1 text-xs text-mesclar-muted line-clamp-2 leading-relaxed">
-                      {row.description}
+                      {stripHtml(row.description)}
                     </p>
 
                     {row.eventDate && (
@@ -551,8 +558,14 @@ export default function SellerWebinarsPage() {
                 title="Clique aqui para carregar a imagem do banner"
                 recommendationText="Formatos aceites: JPG, PNG, WEBP (Recomendado 1200×675px, máx. 6MB)"
                 previewUrl={editPreview || undefined}
-                onFileSelectDirect={(file) => setEditBanner(file)}
-                onClear={() => setEditBanner(null)}
+                onFileSelectDirect={(file) => {
+                  setEditBanner(file);
+                  setEditPreview(file ? URL.createObjectURL(file) : null);
+                }}
+                onClear={() => {
+                  setEditBanner(null);
+                  setEditPreview(null);
+                }}
               />
 
               <div className="flex items-center gap-3 pt-2">

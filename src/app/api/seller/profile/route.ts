@@ -18,7 +18,16 @@ export async function GET() {
   const full = await prisma.seller.findUnique({
     where: { id: target.id },
     include: {
-      user: { select: { name: true, email: true, phone: true, whatsapp: true, registrationNumber: true } },
+      user: {
+        select: {
+          name: true,
+          email: true,
+          phone: true,
+          whatsapp: true,
+          registrationNumber: true,
+          author: { select: { photoUrl: true } },
+        },
+      },
       bankAccounts: true,
       books: { select: { id: true, status: true, salesCount: true, priceEbook: true } },
       orders: {
@@ -31,6 +40,7 @@ export async function GET() {
   const received = full!.orders.reduce((s, o) => s + o.total, 0);
   return NextResponse.json({
     ...full,
+    photoUrl: full?.user?.author?.photoUrl ?? null,
     stats: {
       books: full!.books.length,
       published: full!.books.filter((b) => b.status === "PUBLISHED").length,
@@ -42,9 +52,11 @@ export async function GET() {
 }
 
 const schema = z.object({
+  name: z.string().optional(),
   bio: z.string().optional(),
   phone: z.string().optional(),
   whatsapp: z.string().optional(),
+  photoUrl: z.string().optional().nullable(),
   bankName: z.string().optional(),
   accountHolder: z.string().optional(),
   iban: z.string().optional(),
@@ -66,10 +78,29 @@ export async function PATCH(request: Request) {
     data: { bio: data.bio },
   });
 
-  await prisma.user.update({
-    where: { id: authz.session.user.id },
-    data: { phone: data.phone, whatsapp: data.whatsapp },
-  });
+  if (data.name?.trim() || data.phone !== undefined || data.whatsapp !== undefined) {
+    await prisma.user.update({
+      where: { id: authz.session.user.id },
+      data: {
+        ...(data.name?.trim() ? { name: data.name.trim() } : {}),
+        ...(data.phone !== undefined ? { phone: data.phone.trim() || null } : {}),
+        ...(data.whatsapp !== undefined ? { whatsapp: data.whatsapp.trim() || null } : {}),
+      },
+    });
+  }
+
+  if (data.photoUrl !== undefined || data.name?.trim()) {
+    const author = await prisma.author.findFirst({ where: { userId: authz.session.user.id } });
+    if (author) {
+      await prisma.author.update({
+        where: { id: author.id },
+        data: {
+          ...(data.photoUrl !== undefined ? { photoUrl: data.photoUrl } : {}),
+          ...(data.name?.trim() ? { name: data.name.trim() } : {}),
+        },
+      });
+    }
+  }
 
   if (data.bankName || data.accountHolder || data.iban || data.expressPhone || data.accountNumber) {
     const existing = await prisma.bankAccount.findFirst({

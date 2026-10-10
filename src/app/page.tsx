@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { NewsletterSection } from "@/components/home/newsletter-section";
 import { PublishBookButton } from "@/components/auth/publish-book-button";
+import { stripHtml } from "@/lib/html-utils";
 import {
   Search,
   ShoppingBag,
@@ -214,7 +215,7 @@ export default async function HomePage() {
                       </span>
                     </div>
                     <p className="mt-2.5 text-xs leading-relaxed text-mesclar-muted">
-                      {job.description}
+                      {stripHtml(job.description)}
                     </p>
                     {jobTags.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -352,7 +353,7 @@ export default async function HomePage() {
                   </h3>
                   {item.description && (
                     <p className="mt-2 text-xs leading-relaxed text-mesclar-muted line-clamp-2">
-                      {item.description}
+                      {stripHtml(item.description)}
                     </p>
                   )}
                   <div className="mt-auto pt-5 flex items-center justify-between border-t border-mesclar-border/60">
@@ -442,7 +443,7 @@ export default async function HomePage() {
                   <h3 className="mt-2 font-bold leading-snug">{book.title}</h3>
                   <p className="text-sm text-mesclar-muted">{book.authorName}</p>
                   <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-mesclar-muted">
-                    {book.description}
+                    {stripHtml(book.description)}
                   </p>
                   <div className="mt-auto flex items-center justify-between gap-3 pt-4">
                     <span className="text-xl font-bold text-mesclar-gold-dark">
